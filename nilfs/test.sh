@@ -1,21 +1,35 @@
-#!/bin/sh
+#!/bin/bash
 
 set -euo
 
-mkdir -pv /home/vagrant/test
-cd /home/vagrant/test
+OUTPUT_DIRECTORY=/vagrant/out
+FILESYSTEM_FILE=/home/vagrant/nilfs2.bin
 
-fallocate -l 15GiB nilfs2.bin
-mkfs -t nilfs2 nilfs2.bin
-mkdir -p /mnt
-mount -t nilfs2 nilfs2.bin /mnt
+function setup {
+	fallocate -l 15GiB $FILESYSTEM_FILE
+	mkfs -t nilfs2 $FILESYSTEM_FILE
+	mkdir -p /mnt
+	mount -t nilfs2 $FILESYSTEM_FILE /mnt
+}
 
-df | grep "/dev/loop0" >> df_before.txt
-bonnie++ -d /mnt -s 1G -n 15 -m NILFS2 -b -u root -q >> out.csv
-df | grep "/dev/loop0" >> df_after.txt
+function teardown {
+	umount /mnt
+	rm -fv $FILESYSTEM_FILE
+}
 
-mv out.csv /vagrant/
-mv *.txt /vagrant/
+function test {
+	mkdir -pv $OUTPUT_DIRECTORY
+	rm -fv $OUTPUT_DIRECTORY/*
 
-umount /mnt
-rm nilfs2.bin
+	df | grep "/dev/loop0" >> $OUTPUT_DIRECTORY/df_before.txt
+	bonnie++ -d /mnt -s 1G -n 15 -m NILFS2 -b -u root -q >> $OUTPUT_DIRECTORY/out.csv
+	df | grep "/dev/loop0" >> $OUTPUT_DIRECTORY/df_after.txt
+}
+
+function main {
+	setup
+	test
+	teardown
+}
+
+main
