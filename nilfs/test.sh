@@ -4,6 +4,7 @@ set -euo
 
 OUTPUT_DIRECTORY=/vagrant/out
 FILESYSTEM_FILE=/home/vagrant/nilfs2.bin
+SEED=420
 
 function setup {
 	fallocate -l 15GiB $FILESYSTEM_FILE
@@ -22,7 +23,7 @@ function test {
 	rm -fv $OUTPUT_DIRECTORY/*
 
 	df | grep "/dev/loop0" >> $OUTPUT_DIRECTORY/df_before.txt
-	bonnie++ -d /mnt -s 1G -n 15 -m NILFS2 -b -u root -q >> $OUTPUT_DIRECTORY/out.csv
+	bonnie++ -d /mnt -s 1G -n 15 -m NILFS2 -b -u root -q -z $SEED >> $OUTPUT_DIRECTORY/out.csv
 	df | grep "/dev/loop0" >> $OUTPUT_DIRECTORY/df_after.txt
 }
 
