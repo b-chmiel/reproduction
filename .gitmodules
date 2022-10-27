@@ -1,3 +1,6 @@
 [submodule "copyfs/source"]
 	path = copyfs/source
 	url = git@github.com:bachm44/fuse-copyfs.git
+[submodule "waybackfs/source"]
+	path = waybackfs/source
+	url = git@github.com:bachm44/wayback.git
