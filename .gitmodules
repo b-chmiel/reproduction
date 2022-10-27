@@ -1,0 +1,3 @@
+[submodule "copyfs/source"]
+	path = copyfs/source
+	url = git@github.com:bachm44/fuse-copyfs.git
