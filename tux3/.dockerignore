@@ -1,0 +1,6 @@
+.vagrant/
+.vscode/
+buildroot/
+linux-tux3/
+tux3-buildbot/
+tux3-tests/

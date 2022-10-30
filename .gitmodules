@@ -4,3 +4,6 @@
 [submodule "waybackfs/source"]
 	path = waybackfs/source
 	url = git@github.com:bachm44/wayback.git
+[submodule "tux3/buildroot"]
+	path = tux3/buildroot
+	url = https://git.busybox.net/buildroot
