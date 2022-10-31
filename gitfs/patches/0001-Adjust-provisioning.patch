@@ -1,0 +1,149 @@
+From c47dc20deda2cc3e0a9313d2b2bf4b73fdbff162 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Bart=C5=82omiej=20Chmiel?= <bachm44@gmail.com>
+Date: Mon, 31 Oct 2022 16:27:31 +0100
+Subject: [PATCH] Adjust provisioning
+
+---
+ .gitignore       |  1 +
+ Vagrantfile      | 11 +++++++++++
+ script/provision | 40 ++++++++++++++++++++++++++++++++++++++--
+ test.sh          | 36 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 86 insertions(+), 2 deletions(-)
+ create mode 100644 test.sh
+
+diff --git a/.gitignore b/.gitignore
+index 7f545b6..743eb8a 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -21,3 +21,4 @@ build/*
+ *.egg
+ *.so
+ *.dylib
++out/
+diff --git a/Vagrantfile b/Vagrantfile
+index 508dc58..e046dd6 100644
+--- a/Vagrantfile
++++ b/Vagrantfile
+@@ -7,5 +7,16 @@ VAGRANTFILE_API_VERSION = "2"
+ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+   config.vm.box = "ubuntu/bionic64"
+   config.ssh.forward_agent = true
++
++  if Vagrant.has_plugin?("vagrant-cachier")
++    config.cache.scope = :box
++  end
++
++  config.vm.provider "virtualbox" do |vb|
++    vb.cpus = 1
++    vb.memory = 512
++    vb.customize ['modifyvm', :id, '--paravirtprovider', 'kvm']
++  end
++
+   config.vm.provision "shell", path: "script/provision", privileged: false
+ end
+diff --git a/script/provision b/script/provision
+index d7c0092..cbde79e 100755
+--- a/script/provision
++++ b/script/provision
+@@ -1,5 +1,7 @@
+ #!/usr/bin/env bash
+ 
++set -euo
++
+ export PYTHON_VERSION=python3.7
+ 
+ function python {
+@@ -12,7 +14,7 @@ sudo sh -c 'date > /etc/vagrant_provisioned_at'
+ echo "Installing dependencies"
+ sudo add-apt-repository ppa:presslabs/gitfs
+ sudo apt-get update
+-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q python-virtualenv python-dev libffi-dev build-essential git-core "$PYTHON_VERSION-dev" libgit2-dev "$PYTHON_VERSION-venv" libfuse-dev libfuse2
++sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q python-virtualenv python-dev libffi-dev build-essential git-core "$PYTHON_VERSION-dev" libgit2-dev "$PYTHON_VERSION-venv" libfuse-dev libfuse2 bonnie++
+ 
+ echo "Configuring fuse"
+ sudo groupadd fuse
+@@ -34,4 +36,38 @@ git config --global user.email "vagrant@localhost"
+ git config --global user.name "Vagrant"
+ 
+ echo Installing gitfs
+-"$HOME/gitfs/bin/pip" install -q -e /vagrant
++"$HOME/gitfs/bin/pip" install -e /vagrant
++sudo cp "$HOME/gitfs/bin/gitfs" /bin
++
++
++echo "Setup git deamon for repository hosting"
++sudo mkdir -pv /srv
++sudo mkdir -pv /srv/git
++mkdir /home/vagrant/versions.git
++pushd versions.git
++    echo "Init" > test.txt
++    git init
++    git add .
++    git commit -m "Initial commit"
++popd
++sudo cp -R ./versions.git /srv/git/
++sudo touch /srv/git/versions.git/git-daemon-export-ok
++sudo useradd --home-dir /srv/git --system --shell /usr/sbin/nologin git
++sudo touch /etc/systemd/system/git.service 
++sudo chown vagrant:vagrant /etc/systemd/system/git.service
++sudo cat > /etc/systemd/system/git.service <<EOF
++[Unit]
++Description=Start Git Daemon
++
++[Service]
++User=git
++Group=git
++ExecStart=/usr/bin/git daemon --reuseaddr --base-path=/srv/git --export-all --informative-errors --verbose --enable=receive-pack
++StandardError=journal
++
++[Install]
++WantedBy=multi-user.target
++EOF
++sudo systemctl enable --now git.service
++sudo git config --global user.name "root"
++sudo git config --global user.email root@example.com
+diff --git a/test.sh b/test.sh
+new file mode 100644
+index 0000000..127502d
+--- /dev/null
++++ b/test.sh
+@@ -0,0 +1,36 @@
++#!/bin/bash
++
++set -euo
++
++OUTPUT_DIRECTORY=/vagrant/out
++SEED=420
++
++function setup {
++	echo "Test setup..."
++	mkdir -pv /mnt
++	mkdir -pv /var/lib/gitfs
++	chown -Rv vagrant:vagrant /var/lib/gitfs
++	/home/vagrant/gitfs/bin/gitfs -o log_level=info,debug=false,log=/vagrant/gitfs.log git://localhost:9418/versions.git /mnt
++}
++
++function teardown {
++	umount /mnt
++}
++
++function test {
++	mkdir -pv $OUTPUT_DIRECTORY
++	rm -fv $OUTPUT_DIRECTORY/*
++
++	echo "Testing..."
++	df >> $OUTPUT_DIRECTORY/df_before.txt
++	bonnie++ -d /mnt/current -s 1G -n 15 -m GITFS -b -u root -q -z $SEED >> $OUTPUT_DIRECTORY/out.csv
++	df >> $OUTPUT_DIRECTORY/df_after.txt
++}
++
++function main {
++	setup
++	test
++	teardown
++}
++
++main
+-- 
+2.38.1
+
