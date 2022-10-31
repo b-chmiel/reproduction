@@ -7,3 +7,7 @@
 [submodule "tux3/buildroot"]
 	path = tux3/buildroot
 	url = https://git.busybox.net/buildroot
+[submodule "tux3/linux"]
+	path = tux3/linux
+	url = https://git.kernel.org/pub/scm/linux/kernel/git/daniel/linux-tux3.git
+	branch = user

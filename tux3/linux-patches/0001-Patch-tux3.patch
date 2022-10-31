@@ -1,0 +1,55 @@
+From 9c5b0b9d9e7579ef3e3715b437f32edc9551976e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Bart=C5=82omiej=20Chmiel?= <bachm44@gmail.com>
+Date: Mon, 31 Oct 2022 15:47:50 +0100
+Subject: [PATCH] Patch tux3
+
+---
+ fs/Kconfig             | 1 +
+ fs/Makefile            | 1 +
+ fs/tux3/inode_vfslib.c | 3 ++-
+ 3 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/fs/Kconfig b/fs/Kconfig
+index 312393f3294..6ec36a020ac 100644
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -264,5 +264,6 @@ endif # NETWORK_FILESYSTEMS
+ 
+ source "fs/nls/Kconfig"
+ source "fs/dlm/Kconfig"
++source "fs/tux3/Kconfig"
+ 
+ endmenu
+diff --git a/fs/Makefile b/fs/Makefile
+index f9cb9876e46..0dafc230664 100644
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -126,3 +126,4 @@ obj-y				+= exofs/ # Multiple modules
+ obj-$(CONFIG_CEPH_FS)		+= ceph/
+ obj-$(CONFIG_PSTORE)		+= pstore/
+ obj-$(CONFIG_EFIVAR_FS)		+= efivarfs/
++obj-$(CONFIG_TUX3)		+= tux3/
+diff --git a/fs/tux3/inode_vfslib.c b/fs/tux3/inode_vfslib.c
+index 819a0fd12f8..815ba116a2e 100644
+--- a/fs/tux3/inode_vfslib.c
++++ b/fs/tux3/inode_vfslib.c
+@@ -7,6 +7,7 @@
+ 
+ #include <linux/splice.h>
+ #include <linux/aio.h>		/* for kiocb */
++#include <linux/fs.h>
+ 
+ /*
+  * Almost copy of generic_file_aio_write() (added changed_begin/end,
+@@ -26,7 +27,7 @@ static ssize_t tux3_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
+ 	/* For each ->write_end() calls change_end(). */
+ 	change_begin(sb);
+ 	/* FIXME: file_update_time() in this can be race with mmap */
+-	ret = __generic_file_aio_write(iocb, iov, nr_segs, &iocb->ki_pos);
++	ret = generic_file_aio_write(iocb, iov, nr_segs, iocb->ki_pos);
+ 	change_end_if_needed(sb);
+ 	mutex_unlock(&inode->i_mutex);
+ 
+-- 
+2.38.1
+
