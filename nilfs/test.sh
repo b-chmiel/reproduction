@@ -2,7 +2,7 @@
 
 set -euo
 
-OUTPUT_DIRECTORY=/vagrant/out
+OUTPUT_DIRECTORY=/vagrant/out/`date +"%Y-%m-%dT%T"`
 FILESYSTEM_FILE=/home/vagrant/nilfs2.bin
 SEED=420
 
@@ -20,11 +20,11 @@ function teardown {
 
 function test {
 	mkdir -pv $OUTPUT_DIRECTORY
-	rm -fv $OUTPUT_DIRECTORY/*
+	echo "Running bonnie++ benchmark..."
 
-	df | grep "/dev/loop0" >> $OUTPUT_DIRECTORY/df_before.txt
+	df >> $OUTPUT_DIRECTORY/df_before.txt
 	bonnie++ -d /mnt -s 1G -n 15 -m NILFS2 -b -u root -q -z $SEED >> $OUTPUT_DIRECTORY/out.csv
-	df | grep "/dev/loop0" >> $OUTPUT_DIRECTORY/df_after.txt
+	df >> $OUTPUT_DIRECTORY/df_after.txt
 }
 
 function main {

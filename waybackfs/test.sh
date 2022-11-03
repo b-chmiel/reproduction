@@ -2,7 +2,7 @@
 
 set -euo
 
-OUTPUT_DIRECTORY=/vagrant/out
+OUTPUT_DIRECTORY=/vagrant/out/`date +"%Y-%m-%dT%T"`
 SEED=420
 
 function setup {
@@ -16,7 +16,7 @@ function teardown {
 
 function test {
 	mkdir -pv $OUTPUT_DIRECTORY
-	rm -fv $OUTPUT_DIRECTORY/*
+	echo "Running bonnie++ benchmark..."
 
 	df >> $OUTPUT_DIRECTORY/df_before.txt
 	bonnie++ -d /mnt/destination -s 1G -n 15 -m WAYBACKFS -b -u root -q -z $SEED >> $OUTPUT_DIRECTORY/out.csv

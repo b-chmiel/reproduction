@@ -1,0 +1,6 @@
+tasks:
+  - name: Benchmarking filesystems
+    parallel-tasks:
+      - cmd: cd copyfs && bash run.sh
+      - cmd: cd nilfs && bash run.sh
+      - cmd: cd waybackfs && bash run.sh

@@ -2,7 +2,7 @@
 
 set -euo
 
-OUTPUT_DIRECTORY=/vagrant/out
+OUTPUT_DIRECTORY=/vagrant/out/`date +"%Y-%m-%dT%T"`
 SEED=420
 
 function setup {
@@ -18,7 +18,7 @@ function teardown {
 
 function test {
 	mkdir -pv $OUTPUT_DIRECTORY
-	rm -fv $OUTPUT_DIRECTORY/*
+	echo "Running bonnie++ benchmark..."
 
 	du -s /home/vagrant/versions >> $OUTPUT_DIRECTORY/versions_size_before.txt
 	df >> $OUTPUT_DIRECTORY/df_before.txt
