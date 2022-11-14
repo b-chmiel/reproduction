@@ -2,18 +2,21 @@
 
 set -euo
 
-OUTPUT_DIRECTORY=/vagrant/out/`date +"%Y-%m-%dT%T"`
+DESTINATION=/mnt
+FS_NAME=CopyFS
 SEED=420
+# -x is not applicable here, it crashes when > 1
+BONNIE_ARGS="-d ${DESTINATION} -s 1G -n 15 -m ${FS_NAME} -b -u root -q -z ${SEED}"
+OUTPUT_DIRECTORY=/vagrant/out
 
 function setup {
 	mkdir -pv /home/vagrant/versions
-	mkdir -pv /mnt
-
-	copyfs-mount /home/vagrant/versions /mnt
+	mkdir -pv $DESTINATION
+	copyfs-mount /home/vagrant/versions $DESTINATION
 }
 
 function teardown {
-	umount /mnt
+	umount $DESTINATION
 }
 
 function test {
@@ -22,7 +25,7 @@ function test {
 
 	du -s /home/vagrant/versions >> $OUTPUT_DIRECTORY/versions_size_before.txt
 	df >> $OUTPUT_DIRECTORY/df_before.txt
-	bonnie++ -d /mnt -s 1G -n 15 -m COPYFS -b -u root -q -z $SEED >> $OUTPUT_DIRECTORY/out.csv
+	bonnie++ $BONNIE_ARGS > $OUTPUT_DIRECTORY/out.csv
 	df >> $OUTPUT_DIRECTORY/df_after.txt
 	du -s /home/vagrant/versions >> $OUTPUT_DIRECTORY/versions_size_after.txt
 }

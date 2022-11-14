@@ -14,3 +14,4 @@
 - `vagrant` - virtualization platform for tests
 - `virtualbox` - provider for vagrant
 - `bash`
+- `bonnie++` - bon_csv2html script for graphs creation

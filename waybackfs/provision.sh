@@ -9,7 +9,7 @@ function packages() {
 	apt-get install -y wget make g++ gcc libfuse-dev fuse pkg-config
 }
 
-function bonnie() {
+function bonnie {
     BONNIE_VERSION=2.00b
 
     wget https://github.com/bachm44/bonnie-plus-plus/archive/refs/tags/$BONNIE_VERSION.tar.gz

@@ -1,3 +1,5 @@
 .vscode/
-venv/
 .bashful/
+env/
+bonnie++.csv
+*.html

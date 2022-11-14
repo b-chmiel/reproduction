@@ -2,20 +2,23 @@
 
 set -euo
 
-DESTINATION=/mnt/destination
-FS_NAME=WAYBACKFS
+DESTINATION=/mnt
+FS_NAME=EXT4
 SEED=420
 BONNIE_ARGS="-d ${DESTINATION} -s 1G -n 15 -m ${FS_NAME} -b -u root -q -z ${SEED} -x 2"
 OUTPUT_DIRECTORY=/vagrant/out
+FILESYSTEM_FILE=/home/vagrant/fs.bin
 
 function setup {
-	mkdir -p /mnt/source
+	fallocate -l 15GiB $FILESYSTEM_FILE
+	mkfs.ext4 $FILESYSTEM_FILE
 	mkdir -p $DESTINATION
-	wayback -- /mnt/source $DESTINATION
+	mount $FILESYSTEM_FILE $DESTINATION
 }
 
 function teardown {
 	umount $DESTINATION
+	rm -fv $FILESYSTEM_FILE
 }
 
 function test {

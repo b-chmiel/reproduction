@@ -2,5 +2,9 @@ tasks:
   - name: Benchmarking filesystems
     parallel-tasks:
       - cmd: cd copyfs && bash run.sh
+      - cmd: cd btrfs && bash run.sh
+      - cmd: cd ext4 && bash run.sh
       - cmd: cd nilfs && bash run.sh
       - cmd: cd waybackfs && bash run.sh
+  - name: Creating graphs
+    cmd: python graphs.py && bon_csv2html bonnie++.csv > graphs.html
