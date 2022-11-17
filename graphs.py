@@ -11,7 +11,7 @@ def main():
             current_output = ""
             while line := f.readline().rstrip():
                 current_output += read_row(line)
-            result += current_output
+            result += average(current_output)
 
     with open("bonnie++.csv", "w") as f:
         f.write(result)
@@ -33,6 +33,51 @@ def read_row(row: str) -> str:
     splitted[-1] = str(splitted[-1]) + "\n"
 
     return ",".join(splitted)
+
+
+def average(rows):
+    result = ""
+    count = {}
+    len_rows = 0
+    for row in rows.split("\n"):
+        if "format_version" in row:
+            continue
+
+        len_rows += 1
+        to_skip = 10
+        for i, value in enumerate(row.split(",")):
+            if to_skip > 0:
+                to_skip -= 1
+                count[i] = value
+            elif "us" in value:
+                if i not in count.keys():
+                    count[i] = value
+                else:
+                    count[i] = f"{int(int(count[i][:-2]) + int(value[:-2]))}us"
+            elif "+" in value or value == "":
+                count[i] = value
+            else:
+                if i not in count.keys():
+                    count[i] = float(value)
+                else:
+                    count[i] += float(value)
+
+    to_skip = 10
+    len_rows -= 1
+    for i in count.keys():
+        value = count[i]
+        if to_skip > 0:
+            to_skip -= 1
+            count[i] = value
+        elif isinstance(value, str):
+            if "us" in value:
+                count[i] = f"{int(int(count[i][:-2]) / len_rows)}us"
+            elif "+" in value or value == "":
+                count[i] = value
+        else:
+            count[i] = int(float(count[i]) / len_rows)
+
+    return "1.98" + ",".join([str(i) for i in count.values()]) + "\n"
 
 
 if __name__ == "__main__":

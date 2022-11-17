@@ -5,7 +5,7 @@ set -euo
 DESTINATION=/mnt
 FS_NAME=NILFS2
 SEED=420
-BONNIE_ARGS="-d ${DESTINATION} -s 1G -n 15 -m ${FS_NAME} -b -u root -q -z ${SEED} -x 2"
+BONNIE_ARGS="-d ${DESTINATION} -s 1G -n 15 -m ${FS_NAME} -b -u root -q -z ${SEED}"
 OUTPUT_DIRECTORY=/vagrant/out
 FILESYSTEM_FILE=/home/vagrant/fs.bin
 
