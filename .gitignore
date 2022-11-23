@@ -2,4 +2,5 @@
 .bashful/
 env/
 bonnie++.csv
+all-bonnie++.csv
 *.html

@@ -5,6 +5,7 @@ paths = ["./btrfs", "./copyfs", "./ext4", "./nilfs", "./waybackfs"]
 
 def main():
     result = ""
+    result_all = ""
 
     for path in paths:
         with open(f"{path}/out/out.csv") as f:
@@ -12,9 +13,13 @@ def main():
             while line := f.readline().rstrip():
                 current_output += read_row(line)
             result += average(current_output)
+            result_all += current_output
 
     with open("bonnie++.csv", "w") as f:
         f.write(result)
+
+    with open("all-bonnie++.csv", "w") as f:
+        f.write(result_all)
 
 
 def read_row(row: str) -> str:
@@ -60,7 +65,7 @@ def average(rows):
                 if i not in count.keys():
                     count[i] = float(value)
                 else:
-                    count[i] += float(value)
+                    count[i] = float(count[i]) + float(value)
 
     to_skip = 10
     len_rows -= 1
@@ -68,12 +73,9 @@ def average(rows):
         value = count[i]
         if to_skip > 0:
             to_skip -= 1
-            count[i] = value
         elif isinstance(value, str):
             if "us" in value:
                 count[i] = f"{int(int(count[i][:-2]) / len_rows)}us"
-            elif "+" in value or value == "":
-                count[i] = value
         else:
             count[i] = int(float(count[i]) / len_rows)
 

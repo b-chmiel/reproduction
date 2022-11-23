@@ -25,7 +25,7 @@ function test {
 
 	du -s /home/vagrant/versions >> $OUTPUT_DIRECTORY/versions_size_before.txt
 	df >> $OUTPUT_DIRECTORY/df_before.txt
-	bonnie++ $BONNIE_ARGS > $OUTPUT_DIRECTORY/out.csv
+	bonnie++ $BONNIE_ARGS >> $OUTPUT_DIRECTORY/out.csv
 	df >> $OUTPUT_DIRECTORY/df_after.txt
 	du -s /home/vagrant/versions >> $OUTPUT_DIRECTORY/versions_size_after.txt
 }
