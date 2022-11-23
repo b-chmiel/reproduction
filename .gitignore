@@ -1,6 +1,7 @@
 .vscode/
 .bashful/
 env/
-bonnie++.csv
-all-bonnie++.csv
+
+*.csv
 *.html
+*.jpg
