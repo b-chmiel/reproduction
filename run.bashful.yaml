@@ -1,10 +1,17 @@
+x-reference-data:
+  all-apps: &app-names
+    - $include fs-list.yaml
+
+config:
+  max-parallel-commands: 10
+
 tasks:
   - name: Benchmarking filesystems
     parallel-tasks:
-      - cmd: cd copyfs && bash run.sh
-      - cmd: cd btrfs && bash run.sh
-      - cmd: cd ext4 && bash run.sh
-      - cmd: cd nilfs && bash run.sh
-      - cmd: cd waybackfs && bash run.sh
+      - name: "Run test for <replace>"
+        cmd: |
+          cd <replace> && \
+          bash run.sh
+        for-each: *app-names
   - name: Creating graphs
     cmd: python graphs.py && bon_csv2html bonnie++.csv > graphs.html

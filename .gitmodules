@@ -1,8 +1,8 @@
 [submodule "copyfs/source"]
-	path = copyfs/source
+	path = copyfs/box/source
 	url = git@github.com:bachm44/fuse-copyfs.git
 [submodule "waybackfs/source"]
-	path = waybackfs/source
+	path = waybackfs/box/source
 	url = git@github.com:bachm44/wayback.git
 [submodule "tux3/buildroot"]
 	path = tux3/buildroot

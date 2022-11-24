@@ -2,6 +2,9 @@ x-reference-data:
   all-apps: &app-names
     - $include fs-list.yaml
 
+config:
+  max-parallel-commands: 10
+
 tasks:
   - name: Building vagrant base boxes
     parallel-tasks:
@@ -9,10 +12,11 @@ tasks:
         cmd: |
           cd <replace>/box && \
           vagrant destroy -f && \
+          rm -vf reproduction-<replace>.box && \
           vagrant up && \
           vagrant package --base reproduction-<replace> --output reproduction-<replace>.box && \
-          vagrant box remove reproduction-<replace> -f && \
+          vagrant destroy -f && \
+          vagrant box remove reproduction-<replace> -f || true && \
           vagrant box add reproduction-<replace> reproduction-<replace>.box && \
-          rm -v reproduction-<replace>.box && \
-          vagrant destroy -f
+          rm -vf reproduction-<replace>.box
         for-each: *app-names

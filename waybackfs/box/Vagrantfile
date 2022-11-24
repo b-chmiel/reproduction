@@ -2,10 +2,10 @@
 # vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
-  config.vm.box = "debian/bullseye64"
+  config.vm.box = "debian/contrib-buster64"
 
   config.vm.provider "virtualbox" do |vb|
-    vb.name = 'reproduction-btrfs'
+    vb.name = 'reproduction-waybackfs'
     vb.cpus = "1"
     vb.memory = "256"
 
