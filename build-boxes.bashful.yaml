@@ -1,0 +1,18 @@
+x-reference-data:
+  all-apps: &app-names
+    - $include fs-list.yaml
+
+tasks:
+  - name: Building vagrant base boxes
+    parallel-tasks:
+      - name: "Build <replace> box"
+        cmd: |
+          cd <replace>/box && \
+          vagrant destroy -f && \
+          vagrant up && \
+          vagrant package --base reproduction-<replace> --output reproduction-<replace>.box && \
+          vagrant box remove reproduction-<replace> -f && \
+          vagrant box add reproduction-<replace> reproduction-<replace>.box && \
+          rm -v reproduction-<replace>.box && \
+          vagrant destroy -f
+        for-each: *app-names

@@ -1,0 +1,22 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "debian/bullseye64"
+  # config.vm.disk :disk, size: "33GB", primary: true
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.name = 'reproduction-btrfs'
+    vb.cpus = "1"
+    vb.memory = "256"
+
+    vb.customize ['modifyvm', :id, '--paravirtprovider', 'kvm']
+    vb.customize ['modifyvm', :id, '--natdnshostresolver1', 'on']
+  end
+
+  if Vagrant.has_plugin?("vagrant-cachier")
+    config.cache.scope = :box
+  end
+
+  config.vm.provision "shell", path: "provision.sh"
+end
