@@ -7,8 +7,6 @@ boxes:
 clean:
 	-rm -r .bashful/
 	-rm -r build/
-	-rm -r btrfs/out
-	-rm btrfs/test_template*.sh
 	-rm -r copyfs/out
 	-rm copyfs/test_template*.sh
 	-rm -r ext4/out

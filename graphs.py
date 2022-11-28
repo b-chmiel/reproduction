@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-PATHS = ["./btrfs", "./copyfs", "./ext4", "./nilfs", "./waybackfs"]
+PATHS = ["./copyfs", "./ext4", "./nilfs", "./waybackfs"]
 BUILD_DIR = "./build/"
 
 class Bonnie:
