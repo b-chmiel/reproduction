@@ -1,7 +1,4 @@
 .vscode/
 .bashful/
 env/
-
-*.csv
-*.html
-*.jpg
+build/

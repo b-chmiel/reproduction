@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 
 PATHS = ["./btrfs", "./copyfs", "./ext4", "./nilfs", "./waybackfs"]
 BUILD_DIR = "./build/"
@@ -148,7 +149,11 @@ class Df:
         plt.savefig(self.output_image)
 
 
+def create_build_dir():
+    Path(BUILD_DIR).mkdir(parents=True, exist_ok=True)
+
 def main():
+    create_build_dir()
     Bonnie()
     Df()
 

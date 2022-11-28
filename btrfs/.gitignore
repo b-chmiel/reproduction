@@ -1,3 +1,6 @@
 *.txt
 *.csv
 .vagrant/
+
+test_template.sh
+test_template_env.sh

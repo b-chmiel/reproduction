@@ -10,8 +10,12 @@ tasks:
     parallel-tasks:
       - name: "Run test for <replace>"
         cmd: |
+          cp __test_template.sh <replace>/test_template.sh && \ 
+          cp __test_template_env.sh <replace>/test_template_env.sh && \
           cd <replace> && \
           bash run.sh
         for-each: *app-names
-  - name: Creating graphs
-    cmd: python graphs.py && bon_csv2html bonnie++.csv > graphs.html
+  - name: Create graphs
+    cmd: python graphs.py
+  - name: Generate bonnie++ html table
+    cmd: bon_csv2html ./build/bonnie++.csv > ./build/graphs.html
