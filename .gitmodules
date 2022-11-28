@@ -11,6 +11,3 @@
 	path = tux3/linux
 	url = https://git.kernel.org/pub/scm/linux/kernel/git/daniel/linux-tux3.git
 	branch = user
-[submodule "gitfs/source"]
-	path = gitfs/source
-	url = https://github.com/presslabs/gitfs
