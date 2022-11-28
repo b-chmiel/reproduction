@@ -3,18 +3,19 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-paths = ["./btrfs", "./copyfs", "./ext4", "./nilfs", "./waybackfs"]
+PATHS = ["./btrfs", "./copyfs", "./ext4", "./nilfs", "./waybackfs"]
+BUILD_DIR = "./build/"
 
 class Bonnie:
-    output_csv = "bonnie++.csv"
-    output_all_csv = "all-bonnie++.csv"
+    output_csv = BUILD_DIR + "bonnie++.csv"
+    output_all_csv = BUILD_DIR + "all-bonnie++.csv"
     input_file = "out/out.csv" 
 
     def __init__(self):
         result = ""
         result_all = ""
 
-        for path in paths:
+        for path in PATHS:
             with open(f"{path}/{self.input_file}") as f:
                 current_output = ""
                 while line := f.readline().rstrip():
@@ -98,7 +99,7 @@ class Bonnie:
 class Df:
     input_file_before = "out/df_before.txt"
     input_file_after = "out/df_after.txt"
-    output_image = "versioning_memory_usage.jpg"
+    output_image = BUILD_DIR + "versioning_memory_usage.jpg"
 
     class __DfResult:
         def __init__(self, before, after, name):
@@ -114,7 +115,7 @@ class Df:
 
     def __init__(self):
         result = []
-        for path in paths:
+        for path in PATHS:
             before = 0
             after = 0
             with open(f"{path}/{self.input_file_before}") as f:
