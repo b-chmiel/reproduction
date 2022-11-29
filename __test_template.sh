@@ -14,9 +14,21 @@ FS_NAME=$1
 
 source test_template_env.sh
 
-mkdir -pv $OUTPUT_DIRECTORY
-echo "Running bonnie++ benchmark..."
+function bonnie() {
+    mkdir -pv $OUTPUT_DIRECTORY
+    echo "Running bonnie++ benchmark..."
 
-df >> $OUTPUT_DIRECTORY/df_before.txt
-bonnie++ $BONNIE_ARGS -m $FS_NAME >> $OUTPUT_DIRECTORY/out.csv
-df >> $OUTPUT_DIRECTORY/df_after.txt
+    df >> $OUTPUT_DIRECTORY/df_before.txt
+    bonnie++ $BONNIE_ARGS -m $FS_NAME >> $OUTPUT_DIRECTORY/out.csv
+    df >> $OUTPUT_DIRECTORY/df_after.txt
+}
+
+function fio() {
+    fio fio-job.cfg
+}
+
+function main() {
+    bonnie
+}
+
+main
