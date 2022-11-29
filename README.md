@@ -15,3 +15,8 @@
 - `virtualbox` - provider for vagrant
 - `bash`
 - `bonnie++` - bon_csv2html script for graphs creation
+
+## Running
+
+- `make boxes` - generate and load custom vagrant boxes with all dependencies
+- `make test` - run tests using `__test_template*` files

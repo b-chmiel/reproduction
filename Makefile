@@ -7,11 +7,6 @@ boxes:
 clean:
 	-rm -r .bashful/
 	-rm -r build/
-	-rm -r copyfs/out
-	-rm copyfs/test_template*.sh
-	-rm -r ext4/out
-	-rm ext4/test_template*.sh
-	-rm -r nilfs/out
-	-rm nilfs/test_template*.sh
-	-rm -r waybackfs/out
-	-rm waybackfs/test_template*.sh
+	-find . -name "test_template*.sh" -type f -delete
+	-find . -name "fio-job.cfg" -type f -delete
+	-find . -path "*/out/*" -delete

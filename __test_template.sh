@@ -14,21 +14,66 @@ FS_NAME=$1
 
 source test_template_env.sh
 
-function bonnie() {
-    mkdir -pv $OUTPUT_DIRECTORY
+bonnie_test() {
+    DIR=$OUTPUT_DIRECTORY/bonnie
+    mkdir -pv $DIR
+
     echo "Running bonnie++ benchmark..."
 
-    df >> $OUTPUT_DIRECTORY/df_before.txt
-    bonnie++ $BONNIE_ARGS -m $FS_NAME >> $OUTPUT_DIRECTORY/out.csv
-    df >> $OUTPUT_DIRECTORY/df_after.txt
+    df >> $DIR/df_before_bonnie.txt
+    bonnie++ $BONNIE_ARGS -m $FS_NAME >> $DIR/out.csv
+    df >> $DIR/df_after_bonnie.txt
 }
 
-function fio() {
-    fio fio-job.cfg
+fio_test() {
+    DIR=$OUTPUT_DIRECTORY/fio
+    mkdir -pv $DIR
+
+    mv fio-job.cfg $DESTINATION/
+    pushd $DESTINATION
+        df >> $DIR/df_before_fio_file_append_test.txt
+        fio fio-job.cfg --section file_append_test
+        df >> $DIR/df_after_fio_file_append_test.txt
+
+        df >> $DIR/df_before_fio_random_read_test.txt
+        fio fio-job.cfg --section random_read_test
+        df >> $DIR/df_after_fio_random_read_test.txt
+
+        df >> $DIR/df_before_fio_random_write_test.txt
+        fio fio-job.cfg --section random_write_test
+        df >> $DIR/df_after_fio_random_write_test.txt
+
+        mv *.log $DIR/
+    popd
 }
 
-function main() {
-    bonnie
+delete_test() {
+    TRIALS=100
+    TEST_FILE=delete_test_file
+    DIR=$OUTPUT_DIRECTORY/delete
+    mkdir -pv $DIR
+
+    echo "Running deletion test for: ${TRIALS} trials"
+
+    df >> $DIR/df_before_delete_test.txt
+    pushd $DESTINATION
+        for i in {1..$TRIALS}
+        do
+            # generate file with random content
+            touch $TEST_FILE
+            shred --iterations=1 --size=$FILE_SIZE $TEST_FILE
+            rm $TEST_FILE
+        done
+    popd
+    df >> $DIR/df_after_delete_test.txt
+}
+
+main() {
+    mkdir -pv $OUTPUT_DIRECTORY
+
+    bonnie_test
+    fio_test
+    delete_test
 }
 
 main

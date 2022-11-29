@@ -10,7 +10,7 @@ BUILD_DIR = "./build/"
 class Bonnie:
     output_csv = BUILD_DIR + "bonnie++.csv"
     output_all_csv = BUILD_DIR + "all-bonnie++.csv"
-    input_file = "out/out.csv" 
+    input_file = "out/bonnie/out.csv" 
 
     def __init__(self):
         result = ""
@@ -98,8 +98,8 @@ class Bonnie:
 
 
 class Df:
-    input_file_before = "out/df_before.txt"
-    input_file_after = "out/df_after.txt"
+    input_file_before = "out/bonnie/df_before_bonnie.txt"
+    input_file_after = "out/bonnie/df_after_bonnie.txt"
     output_image = BUILD_DIR + "versioning_memory_usage.jpg"
 
     class __DfResult:

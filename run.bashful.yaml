@@ -12,6 +12,7 @@ tasks:
         cmd: |
           cp __test_template.sh <replace>/test_template.sh && \ 
           cp __test_template_env.sh <replace>/test_template_env.sh && \
+          cp __fio-job.cfg <replace>/fio-job.cfg && \
           cd <replace> && \
           bash run.sh
         for-each: *app-names
