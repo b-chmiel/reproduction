@@ -18,5 +18,3 @@ tasks:
         for-each: *app-names
   - name: Create graphs
     cmd: python graphs.py
-  - name: Generate bonnie++ html table
-    cmd: bon_csv2html ./build/bonnie++.csv > ./build/graphs.html

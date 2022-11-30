@@ -1,4 +1,3 @@
-- Generate graphs for fio and delete tests
+- Generate graphs for fio
 - Change us to ms in bonnie benchmark
 - Validate if waybackfs is fully implemented
-

@@ -3,13 +3,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+import subprocess
 
 PATHS = ["./copyfs", "./ext4", "./nilfs", "./waybackfs"]
-BUILD_DIR = "./build/"
+BUILD_DIR = "./build"
 
 class Bonnie:
-    output_csv = BUILD_DIR + "bonnie++.csv"
-    output_all_csv = BUILD_DIR + "all-bonnie++.csv"
+    output_csv = BUILD_DIR + "/bonnie++.csv"
+    output_all_csv = BUILD_DIR + "/all-bonnie++.csv"
+    output_html = BUILD_DIR + "/graphs.html"
     input_file = "out/bonnie/out.csv" 
 
     def __init__(self):
@@ -29,6 +31,9 @@ class Bonnie:
 
         with open(self.output_all_csv, "w") as f:
             f.write(result_all)
+
+        graphs_html = open(self.output_html, "w+")
+        subprocess.call(["bon_csv2html", self.output_csv], stdout=graphs_html)
     
 
     def __read_row(self, row: str) -> str:
@@ -110,10 +115,11 @@ class Df:
         def y(self):
             return self.after - self.before
 
-    def __init__(self, input_file_before, input_file_after, output_image):
+    def __init__(self, input_file_before, input_file_after, output_image, title):
         self.input_file_before = input_file_before
         self.input_file_after = input_file_after
         self.output_image = output_image
+        self.title = title
 
         result = []
         df_lines = {'./copyfs': '/dev/sda1', './ext4': '/dev/sda1', './nilfs': '/dev/loop0', './waybackfs': '/dev/sda1'}
@@ -129,7 +135,7 @@ class Df:
 
             result.append(self.__DfResult(before, after, path[2:]))
         
-        self.__df_plot(result)
+        self.__df_plot(result, self.title)
 
     def __df_results_read_file(self, file, df_line_start):
         lines = []
@@ -140,29 +146,67 @@ class Df:
         bytes_used = [int(line.split()[2]) for line in lines]
         return sum(bytes_used) / len(bytes_used)
 
-    def __df_plot(self, results):
+    def __df_plot(self, results, title):
         x = [result.x() for result in results]
         y = [result.y() for result in results]
         plt.bar(np.arange(len(y)), y ,color='blue',edgecolor='black')
         plt.xticks(np.arange(len(y)), x)
         plt.xlabel('File system', fontsize=16)
-        plt.ylabel('Bytes used for versioning', fontsize=16)
-        plt.title('Versioning history memory usage',fontsize=20)
+        plt.ylabel('Space used in bytes', fontsize=16)
+        plt.title(title, fontsize=16)
         plt.savefig(self.output_image)
+        plt.cla()
 
 
 def create_build_dir():
     Path(BUILD_DIR).mkdir(parents=True, exist_ok=True)
 
+
+def bonnie_df():
+    input_file_before = "out/bonnie/df_before_bonnie.txt"
+    input_file_after = "out/bonnie/df_after_bonnie.txt"
+    output_image = BUILD_DIR + "/bonnie_metadata_size.jpg"
+    title = "Space occupied by metadata after bonnie++ test"
+
+    Df(input_file_before, input_file_after, output_image, title)
+
+
+def delete_df():
+    input_file_before = "out/delete/df_before_delete_test.txt"
+    input_file_after = "out/delete/df_after_delete_test.txt"
+    output_image = BUILD_DIR + "/delete_metadata_size.jpg"
+    title = "Space occupied by metadata after deletion test"
+
+    Df(input_file_before, input_file_after, output_image, title)
+
+
+def fio_df():
+    out_dir = "out/fio"
+    input_file_before = out_dir + "/df_before_fio_file_append_test.txt"
+    input_file_after = out_dir + "/df_after_fio_file_append_test.txt"
+    output_image = BUILD_DIR + "/fio_file_append_metadata_size.jpg"
+    title = "Space occupied by metadata after fio file append test"
+    Df(input_file_before, input_file_after, output_image, title)
+
+    input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
+    input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
+    output_image = BUILD_DIR + "/fio_random_read_metadata_size.jpg"
+    title = "Space occupied by metadata after fio random read test"
+    Df(input_file_before, input_file_after, output_image, title)
+
+    input_file_before = out_dir + "/df_before_fio_random_write_test.txt"
+    input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
+    output_image = BUILD_DIR + "/fio_random_write_metadata_size.jpg"
+    title = "Space occupied by metadata after fio random write test"
+    Df(input_file_before, input_file_after, output_image, title)
+
+
 def main():
     create_build_dir()
     Bonnie()
-
-    input_file_before = "out/bonnie/df_before_bonnie.txt"
-    input_file_after = "out/bonnie/df_after_bonnie.txt"
-    output_image = BUILD_DIR + "versioning_memory_usage.jpg"
-
-    Df(input_file_before, input_file_after, output_image)
+    bonnie_df()
+    delete_df()
+    fio_df()
 
 
 if __name__ == "__main__":
