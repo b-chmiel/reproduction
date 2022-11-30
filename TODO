@@ -1,0 +1,4 @@
+- Generate graphs for fio and delete tests
+- Change us to ms in bonnie benchmark
+- Validate if waybackfs is fully implemented
+

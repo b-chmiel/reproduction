@@ -98,10 +98,6 @@ class Bonnie:
 
 
 class Df:
-    input_file_before = "out/bonnie/df_before_bonnie.txt"
-    input_file_after = "out/bonnie/df_after_bonnie.txt"
-    output_image = BUILD_DIR + "versioning_memory_usage.jpg"
-
     class __DfResult:
         def __init__(self, before, after, name):
             self.before = before
@@ -114,25 +110,31 @@ class Df:
         def y(self):
             return self.after - self.before
 
-    def __init__(self):
+    def __init__(self, input_file_before, input_file_after, output_image):
+        self.input_file_before = input_file_before
+        self.input_file_after = input_file_after
+        self.output_image = output_image
+
         result = []
+        df_lines = {'./copyfs': '/dev/sda1', './ext4': '/dev/sda1', './nilfs': '/dev/loop0', './waybackfs': '/dev/sda1'}
         for path in PATHS:
             before = 0
             after = 0
+            df_line_start = df_lines[path]
             with open(f"{path}/{self.input_file_before}") as f:
-                before = self.__df_results_read_file(f)
+                before = self.__df_results_read_file(f, df_line_start)
 
             with open(f"{path}/{self.input_file_after}") as f:
-                after = self.__df_results_read_file(f)
+                after = self.__df_results_read_file(f, df_line_start)
 
             result.append(self.__DfResult(before, after, path[2:]))
         
         self.__df_plot(result)
 
-    def __df_results_read_file(self, file):
+    def __df_results_read_file(self, file, df_line_start):
         lines = []
         while line := file.readline():
-            if "/dev/sda1" in line:
+            if df_line_start in line:
                 lines.append(line)
         
         bytes_used = [int(line.split()[2]) for line in lines]
@@ -155,7 +157,12 @@ def create_build_dir():
 def main():
     create_build_dir()
     Bonnie()
-    Df()
+
+    input_file_before = "out/bonnie/df_before_bonnie.txt"
+    input_file_after = "out/bonnie/df_after_bonnie.txt"
+    output_image = BUILD_DIR + "versioning_memory_usage.jpg"
+
+    Df(input_file_before, input_file_after, output_image)
 
 
 if __name__ == "__main__":
