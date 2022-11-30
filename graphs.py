@@ -4,14 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 import subprocess
+import os
 
 PATHS = ["./copyfs", "./ext4", "./nilfs", "./waybackfs"]
 BUILD_DIR = "./build"
 
+
+
 class Bonnie:
-    output_csv = BUILD_DIR + "/bonnie++.csv"
-    output_all_csv = BUILD_DIR + "/all-bonnie++.csv"
-    output_html = BUILD_DIR + "/graphs.html"
+    output_csv = BUILD_DIR + "/bonnie/bonnie++.csv"
+    output_all_csv = BUILD_DIR + "/bonnie/all-bonnie++.csv"
+    output_html = BUILD_DIR + "/bonnie/bonnie-graphs.html"
     input_file = "out/bonnie/out.csv" 
 
     def __init__(self):
@@ -32,8 +35,7 @@ class Bonnie:
         with open(self.output_all_csv, "w") as f:
             f.write(result_all)
 
-        graphs_html = open(self.output_html, "w+")
-        subprocess.call(["bon_csv2html", self.output_csv], stdout=graphs_html)
+        self.__generate_table() 
     
 
     def __read_row(self, row: str) -> str:
@@ -102,6 +104,12 @@ class Bonnie:
                 count[i] = int(float(count[i]) / len_rows)
 
 
+    def __generate_table(self):
+        graphs_html = open(self.output_html, "w+")
+        subprocess.call(["bon_csv2html", self.output_csv], stdout=graphs_html)
+    
+
+
 class Df:
     class __DfResult:
         def __init__(self, before, after, name):
@@ -109,11 +117,14 @@ class Df:
             self.after = after
             self.name = name
         
+
         def x(self):
             return self.name
         
+
         def y(self):
             return self.after - self.before
+
 
     def __init__(self, input_file_before, input_file_after, output_image, title):
         self.input_file_before = input_file_before
@@ -137,6 +148,7 @@ class Df:
         
         self.__df_plot(result, self.title)
 
+
     def __df_results_read_file(self, file, df_line_start):
         lines = []
         while line := file.readline():
@@ -145,6 +157,7 @@ class Df:
         
         bytes_used = [int(line.split()[2]) for line in lines]
         return sum(bytes_used) / len(bytes_used)
+
 
     def __df_plot(self, results, title):
         x = [result.x() for result in results]
@@ -158,8 +171,59 @@ class Df:
         plt.cla()
 
 
-def create_build_dir():
-    Path(BUILD_DIR).mkdir(parents=True, exist_ok=True)
+
+class Fio:
+    data_dir = BUILD_DIR + "/fio/gnuplot"
+    def __init__(self):
+        for file in Fio.__get_data_files(self.data_dir):
+            Fio.__process(self.data_dir + "/" + file)
+
+
+    def __get_data_files(path: str):
+        for filename in os.listdir(path):
+            if os.path.isfile(os.path.join(path, filename)) and 'average' in filename:
+                yield filename
+    
+
+    def __process(file: str):
+        xx = []
+        yy = []
+        with open(file) as f:
+            for line in f.readlines():
+                splitted_line = line.strip().split(' ')
+                if Fio.__does_list_contain_digit(splitted_line) and len(splitted_line) == 2:
+                    yy.append(int(splitted_line[1]))
+                elif len(splitted_line) == 6:
+                    xx.append(splitted_line[5].split('_')[0])
+
+
+        #./build/fio/gnuplot/random_read_test_bw.average
+        # Match this part    ^---------^
+        test_name = ' '.join(file.split('/')[-1].split('.')[0].split('_')[:2])
+        title = f"I/O Bandwidth for {test_name} test"
+        xlabel = "File system"
+        ylabel = "Throughput (KB/s)"
+        filename = f"{BUILD_DIR}/{'_'.join(test_name.split(' '))}_average_bandwidth"
+        Fio.__plot(xx, yy, title, xlabel, ylabel, filename)
+
+
+    def __does_list_contain_digit(list):
+        return len([s for s in list if s.isdigit()]) != 0
+
+
+    def __plot(xx: list[int], yy: list[int], title: str, xlabel: str, ylabel: str, filename: str):
+        plt.bar(np.arange(len(yy)), yy ,color='blue',edgecolor='black')
+        plt.xticks(np.arange(len(yy)), xx)
+        plt.xlabel(xlabel, fontsize=12)
+        plt.ylabel(ylabel, fontsize=12)
+        plt.title(title, fontsize=16)
+        plt.savefig(filename)
+        plt.cla()
+
+
+
+def create_dir(dir_name: str):
+    Path(dir_name).mkdir(parents=True, exist_ok=True)
 
 
 def bonnie_df():
@@ -182,31 +246,40 @@ def delete_df():
 
 def fio_df():
     out_dir = "out/fio"
-    input_file_before = out_dir + "/df_before_fio_file_append_test.txt"
-    input_file_after = out_dir + "/df_after_fio_file_append_test.txt"
-    output_image = BUILD_DIR + "/fio_file_append_metadata_size.jpg"
-    title = "Space occupied by metadata after fio file append test"
+
+    input_file_before = out_dir + "/df_before_fio_file_append_read_test.txt"
+    input_file_after = out_dir + "/df_after_fio_file_append_read_test.txt"
+    output_image = BUILD_DIR + "/fio_file_append_read_metadata_size.jpg"
+    title = "Space occupied by metadata after fio file append read test"
     Df(input_file_before, input_file_after, output_image, title)
 
-    input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
-    input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
-    output_image = BUILD_DIR + "/fio_random_read_metadata_size.jpg"
-    title = "Space occupied by metadata after fio random read test"
+    input_file_before = out_dir + "/df_before_fio_file_append_write_test.txt"
+    input_file_after = out_dir + "/df_after_fio_file_append_write_test.txt"
+    output_image = BUILD_DIR + "/fio_file_append_write_metadata_size.jpg"
+    title = "Space occupied by metadata after fio file append write test"
     Df(input_file_before, input_file_after, output_image, title)
 
-    input_file_before = out_dir + "/df_before_fio_random_write_test.txt"
-    input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
-    output_image = BUILD_DIR + "/fio_random_write_metadata_size.jpg"
-    title = "Space occupied by metadata after fio random write test"
+    input_file_before = out_dir + "/df_before_fio_read_test.txt"
+    input_file_after = out_dir + "/df_after_fio_read_test.txt"
+    output_image = BUILD_DIR + "/fio_read_metadata_size.jpg"
+    title = "Space occupied by metadata after fio read test"
+    Df(input_file_before, input_file_after, output_image, title)
+
+    input_file_before = out_dir + "/df_before_fio_write_test.txt"
+    input_file_after = out_dir + "/df_after_fio_write_test.txt"
+    output_image = BUILD_DIR + "/fio_write_metadata_size.jpg"
+    title = "Space occupied by metadata after fio write test"
     Df(input_file_before, input_file_after, output_image, title)
 
 
 def main():
-    create_build_dir()
+    create_dir(BUILD_DIR)
+    create_dir(BUILD_DIR + "/bonnie")
     Bonnie()
     bonnie_df()
     delete_df()
     fio_df()
+    Fio()
 
 
 if __name__ == "__main__":

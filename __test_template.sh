@@ -31,24 +31,28 @@ fio_test() {
 
     mv fio-job.cfg $DESTINATION/
     pushd $DESTINATION
-        df >> $DIR/df_before_fio_file_append_test.txt
-        fio fio-job.cfg --section file_append_test
-        df >> $DIR/df_after_fio_file_append_test.txt
+        df >> $DIR/df_before_fio_file_append_read_test.txt
+        fio fio-job.cfg --section file_append_read_test
+        df >> $DIR/df_after_fio_file_append_read_test.txt
 
-        df >> $DIR/df_before_fio_random_read_test.txt
-        fio fio-job.cfg --section random_read_test
-        df >> $DIR/df_after_fio_random_read_test.txt
+        df >> $DIR/df_before_fio_file_append_write_test.txt
+        fio fio-job.cfg --section file_append_write_test
+        df >> $DIR/df_after_fio_file_append_write_test.txt
 
-        df >> $DIR/df_before_fio_random_write_test.txt
-        fio fio-job.cfg --section random_write_test
-        df >> $DIR/df_after_fio_random_write_test.txt
+        df >> $DIR/df_before_fio_read_test.txt
+        fio fio-job.cfg --section read_test
+        df >> $DIR/df_after_fio_read_test.txt
+
+        df >> $DIR/df_before_fio_write_test.txt
+        fio fio-job.cfg --section write_test
+        df >> $DIR/df_after_fio_write_test.txt
 
         mv *.log $DIR/
     popd
 }
 
 delete_test() {
-    TRIALS=100
+    TRIALS=10
     TEST_FILE=delete_test_file
     DIR=$OUTPUT_DIRECTORY/delete
     mkdir -pv $DIR

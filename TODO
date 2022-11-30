@@ -1,3 +1,6 @@
-- Generate graphs for fio
+- Change kb to mb in fio graphs
+- Change bytes to mb in df graphs
 - Change us to ms in bonnie benchmark
 - Validate if waybackfs is fully implemented
+- Fix bandwidth read and write test graphs
+- Fix delete test for copyfs (not enough memory in box to perform this test)
