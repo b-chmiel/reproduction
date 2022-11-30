@@ -3,4 +3,4 @@
 - Change us to ms in bonnie benchmark
 - Validate if waybackfs is fully implemented
 - Fix bandwidth read and write test graphs
-- Fix delete test for copyfs (not enough memory in box to perform this test)
+- Fix delete test for copyfs, nilfs (not enough memory in box to perform this test)

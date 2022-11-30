@@ -10,11 +10,12 @@
 
 ## Requirements
 
-- `bashful` (https://github.com/wagoodman/bashful) - running all scripts at once
+- `GNU parallel` (https://www.gnu.org/software/parallel/) - running all scripts at once
 - `vagrant` - virtualization platform for tests
 - `virtualbox` - provider for vagrant
 - `bash`
-- `bonnie++` - bon_csv2html script for graphs creation
+- `bonnie++` - bon_csv2html script for bonnie graph creation
+- `python` - parsing results and creating graphs
 
 ## Running
 
