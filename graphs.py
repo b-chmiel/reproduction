@@ -175,8 +175,11 @@ class Df:
 class Fio:
     data_dir = BUILD_DIR + "/fio/gnuplot"
     def __init__(self):
-        for file in Fio.__get_data_files(self.data_dir):
-            Fio.__process(self.data_dir + "/" + file)
+        for subdir, dirs, files in os.walk(self.data_dir):
+            for file in files:
+                if 'average' in file:
+                    print("Processing: ", file)
+                    Fio.__process(os.path.join(subdir, file))
 
 
     def __get_data_files(path: str):
@@ -198,8 +201,8 @@ class Fio:
 
 
         #./build/fio/gnuplot/random_read_test_bw.average
-        # Match this part    ^---------^
-        test_name = ' '.join(file.split('/')[-1].split('.')[0].split('_')[:2])
+        # Match this part    ^--------------^
+        test_name = ' '.join(file.split('/')[-1].split('.')[0].split('_')[:3])
         title = f"I/O Bandwidth for {test_name} test"
         xlabel = "File system"
         ylabel = "Throughput (KB/s)"
@@ -259,15 +262,15 @@ def fio_df():
     title = "Space occupied by metadata after fio file append write test"
     Df(input_file_before, input_file_after, output_image, title)
 
-    input_file_before = out_dir + "/df_before_fio_read_test.txt"
-    input_file_after = out_dir + "/df_after_fio_read_test.txt"
-    output_image = BUILD_DIR + "/fio_read_metadata_size.jpg"
+    input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
+    input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
+    output_image = BUILD_DIR + "/fio_random_read_metadata_size.jpg"
     title = "Space occupied by metadata after fio read test"
     Df(input_file_before, input_file_after, output_image, title)
 
-    input_file_before = out_dir + "/df_before_fio_write_test.txt"
-    input_file_after = out_dir + "/df_after_fio_write_test.txt"
-    output_image = BUILD_DIR + "/fio_write_metadata_size.jpg"
+    input_file_before = out_dir + "/df_before_fio_random_write_test.txt"
+    input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
+    output_image = BUILD_DIR + "/fio_random_write_metadata_size.jpg"
     title = "Space occupied by metadata after fio write test"
     Df(input_file_before, input_file_after, output_image, title)
 

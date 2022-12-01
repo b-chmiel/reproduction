@@ -39,13 +39,13 @@ fio_test() {
         fio fio-job.cfg --section file_append_write_test
         df >> $DIR/df_after_fio_file_append_write_test.txt
 
-        df >> $DIR/df_before_fio_read_test.txt
-        fio fio-job.cfg --section read_test
-        df >> $DIR/df_after_fio_read_test.txt
+        df >> $DIR/df_before_fio_random_read_test.txt
+        fio fio-job.cfg --section random_read_test
+        df >> $DIR/df_after_fio_random_read_test.txt
 
-        df >> $DIR/df_before_fio_write_test.txt
-        fio fio-job.cfg --section write_test
-        df >> $DIR/df_after_fio_write_test.txt
+        df >> $DIR/df_before_fio_random_write_test.txt
+        fio fio-job.cfg --section random_write_test
+        df >> $DIR/df_after_fio_random_write_test.txt
 
         mv *.log $DIR/
     popd
@@ -63,9 +63,8 @@ delete_test() {
     pushd $DESTINATION
         for i in {1..$TRIALS}
         do
-            # generate file with random content
-            touch $TEST_FILE
-            shred --iterations=1 --size=$FILE_SIZE $TEST_FILE
+            # generate file filled with zeros
+            truncate -s $FILE_SIZE $TEST_FILE
             rm $TEST_FILE
         done
     popd

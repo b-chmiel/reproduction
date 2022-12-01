@@ -47,15 +47,16 @@ generate_gnuplot() {
 	fio_test=$@
 	log "Generate gnuplot for ${fio_test}"
 	cd build/fio/logs && \
-		rm -rfv ../gnuplot && \
-		fio2gnuplot -t $fio_test -d ../gnuplot -p "*${fio_test}_bw*.log" -v
+		rm -rfv ../gnuplot/$fio_test && \
+		mkdir -pv ../gnuplot/$fio_test && \
+		fio2gnuplot -t $fio_test -d ../gnuplot/$fio_test -p "*${fio_test}_bw*.log" -v
 }
 
 export -f generate_gnuplot
 
 main() {
 	file_systems=('copyfs' 'ext4' 'nilfs' 'waybackfs')
-	fio_tests=('file_append_read_test' 'file_append_write_test' 'read_test' 'write_test')
+	fio_tests=('file_append_read_test' 'file_append_write_test' 'random_read_test' 'random_write_test')
 
 	mkdir -pv $LOG_DIR
 
@@ -67,7 +68,6 @@ main() {
 		--tag \
 		--line-buffer \
 		benchmark ::: ${file_systems[@]}
-
 
 	log "Copy fio logs"
 	parallel \

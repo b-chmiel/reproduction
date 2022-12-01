@@ -12,15 +12,15 @@ log() {
 export -f log
 
 build_box() {
-	 fs_name=$@
+	fs_name=$@
 
-	 log "Building box for ${fs_name}"
+	log "Building box for ${fs_name}"
 
 	box="reproduction-${fs_name}"	
 	box_file="${box}.box"
 
-	cd $fs_name/box && \
-		vagrant destroy -f && \
+	pushd $fs_name/box
+		vagrant destroy -f || true && \
 		rm -vf $box_file && \
 		vagrant up && \
 		vagrant package --base $box --output $box_file && \
@@ -28,6 +28,7 @@ build_box() {
 		vagrant box remove $box -f || true && \
 		vagrant box add $box $box_file && \
 		rm -vf $box_file
+	popd
 }
 
 export -f build_box

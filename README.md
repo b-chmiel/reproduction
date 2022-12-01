@@ -11,7 +11,7 @@
 ## Requirements
 
 - `GNU parallel` (https://www.gnu.org/software/parallel/) - running all scripts at once
-- `vagrant` - virtualization platform for tests
+- `vagrant` - virtualization platform for tests (with plugins vagrant-cachier and vagrant-disksize)
 - `virtualbox` - provider for vagrant
 - `bash`
 - `bonnie++` - bon_csv2html script for bonnie graph creation
