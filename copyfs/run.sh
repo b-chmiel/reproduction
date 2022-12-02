@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -euo
+set -euo pipefail
+IFS=$'\n\t'
 
 vagrant destroy -f && vagrant up
 

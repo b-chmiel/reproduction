@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -euo pipefail
+IFS=$'\n\t'
 
 WORKSPACE=${WORKSPACE:-$(pwd)}
 LOG_DIR=${LOG_DIR:-$(pwd)/logs/test}
@@ -67,6 +68,7 @@ main() {
 		-j8 \
 		--tag \
 		--line-buffer \
+		--halt 2 \
 		benchmark ::: ${file_systems[@]}
 
 	log "Copy fio logs"
@@ -76,6 +78,7 @@ main() {
 		-j8 \
 		--tag \
 		--line-buffer \
+		--halt 2 \
 		copy_fio_logs ::: ${file_systems[@]}
 
 	log "Generate gnuplot rendering scripts for fio tests: ${fio_tests[*]}"
@@ -85,6 +88,7 @@ main() {
 		-j8 \
 		--tag \
 		--line-buffer \
+		--halt-on-error now,fail=1 \
 		generate_gnuplot ::: ${fio_tests[@]}
 
 	log "Generate graphs"

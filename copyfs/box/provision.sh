@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -euo
+set -euo pipefail
+IFS=$'\n\t'
 
 packages() {
     apt-get update && \
@@ -39,12 +40,28 @@ fio_install() {
     popd
 }
 
+gen_file_install() {
+    GEN_FILE_VERSION=1.0.3
+    DIR=./gen_file_install
+
+    wget https://github.com/bachm44/gen_file/releases/download/v$GEN_FILE_VERSION/gen_file-$GEN_FILE_VERSION.tar.gz
+    mkdir -pv $DIR
+    tar -xf *.tar.gz -C $DIR --strip-components=1
+    rm *.tar.gz
+    pushd $DIR
+        ./configure
+        make
+        make install
+    popd
+}
+
 install_fs() {
     cp -rv /vagrant/source/ /home/vagrant/
-    cd /home/vagrant/source
-    ./configure
-    make all
-    make install
+    pushd /home/vagrant/source
+        ./configure
+        make all
+        make install
+    popd
 }
 
 fix_ssh_keys() {
@@ -58,6 +75,7 @@ main() {
     packages
     bonnie
     fio_install
+    gen_file_install
     install_fs
     fix_ssh_keys
 }

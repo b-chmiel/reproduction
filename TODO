@@ -2,3 +2,4 @@
 - Change bytes to mb in df graphs
 - Change us to ms in bonnie benchmark
 - Validate if waybackfs is fully implemented
+- Check units in df graphs

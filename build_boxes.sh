@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -euo pipefail
+IFS=$'\n\t'
 
 WORKSPACE=${WORKSPACE:-$(pwd)}
 LOG_DIR=${LOG_DIR:-$(pwd)/logs/build_boxes}
@@ -46,6 +47,7 @@ main() {
 		-j8 \
 		--tag \
 		--line-buffer \
+		--halt-on-error now,fail=1 \
 		build_box {1} ::: ${file_systems[@]}
 	
 	log "Finished successfully"
