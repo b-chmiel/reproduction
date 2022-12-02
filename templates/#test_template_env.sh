@@ -3,7 +3,6 @@
 # and executed in Vagrantbox
 
 set -euo pipefail
-IFS=$'\n\t'
 
 DESTINATION=/mnt
 SEED=420

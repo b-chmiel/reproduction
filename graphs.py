@@ -22,7 +22,7 @@ class Bonnie:
         result_all = ""
 
         for path in PATHS:
-            with open(f"{path}/{self.input_file}") as f:
+            with open(f"fs/{path}/{self.input_file}") as f:
                 current_output = ""
                 while line := f.readline().rstrip():
                     current_output += self.__read_row(line)
@@ -138,10 +138,10 @@ class Df:
             before = 0
             after = 0
             df_line_start = df_lines[path]
-            with open(f"{path}/{self.input_file_before}") as f:
+            with open(f"fs/{path}/{self.input_file_before}") as f:
                 before = self.__df_results_read_file(f, df_line_start)
 
-            with open(f"{path}/{self.input_file_after}") as f:
+            with open(f"fs/{path}/{self.input_file_after}") as f:
                 after = self.__df_results_read_file(f, df_line_start)
 
             result.append(self.__DfResult(before, after, path[2:]))

@@ -4,7 +4,6 @@
 # and executed in Vagrantbox
 
 set -euo pipefail
-IFS=$'\n\t'
 
 if [[ $# -eq 0 ]] ; then
     echo 'Test template need fs_name argument'
@@ -53,7 +52,7 @@ fio_test() {
 }
 
 delete_test() {
-    TRIALS=1
+    TRIALS=5
     TEST_FILE=delete_test_file
     DIR=$OUTPUT_DIRECTORY/delete
     mkdir -pv $DIR
@@ -65,7 +64,7 @@ delete_test() {
         for i in {1..$TRIALS}
         do
         	echo "Trial ${i} / ${TRIALS}"
-            gen_file --size=100M --seed=420 $TEST_FILE
+            gen_file --size=$TEST_FILE --seed=420 $TEST_FILE
             rm $TEST_FILE
         done
     popd

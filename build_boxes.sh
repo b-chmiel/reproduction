@@ -20,7 +20,7 @@ build_box() {
 	box="reproduction-${fs_name}"	
 	box_file="${box}.box"
 
-	pushd $fs_name/box
+	pushd fs/$fs_name/box
 		vagrant destroy -f || true && \
 		rm -vf $box_file && \
 		vagrant up && \

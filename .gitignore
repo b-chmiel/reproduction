@@ -8,3 +8,4 @@ test_template_env.sh
 **/out/
 **/.vagrant/
 logs/
+fio_generate_plots_reworked.sh
