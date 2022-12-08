@@ -97,7 +97,7 @@ main() {
 		generate_gnuplot ::: ${fio_tests[@]}
 
 	log "Generate graphs"
-	python graphs.py
+	python graphs.py | adddate
 
 	log "Finished successfully"
 }

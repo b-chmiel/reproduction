@@ -52,7 +52,7 @@ fio_test() {
 }
 
 delete_test() {
-    TRIALS=5
+    TRIALS=2
     TEST_FILE=delete_test_file
     DIR=$OUTPUT_DIRECTORY/delete
     mkdir -pv $DIR
@@ -61,11 +61,14 @@ delete_test() {
 
     df >> $DIR/df_before_delete_test.txt
     pushd $DESTINATION
-        for i in {1..$TRIALS}
+	counter=1
+	while [ $counter -le ${TRIALS} ]
         do
-        	echo "Trial ${i} / ${TRIALS}"
-            gen_file --size=$TEST_FILE --seed=420 $TEST_FILE
-            rm $TEST_FILE
+	    echo "Trial ${counter} / ${TRIALS}"
+	
+            gen_file --size=1G --seed=$SEED $TEST_FILE
+            rm -fv $TEST_FILE
+	    ((counter++))
         done
     popd
     df >> $DIR/df_after_delete_test.txt

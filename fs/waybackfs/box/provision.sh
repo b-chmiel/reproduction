@@ -6,7 +6,7 @@ IFS=$'\n\t'
 apt_packages() {
     apt-get update && \
 	export DEBIAN_FRONTEND=noninteractive && \
-	apt-get install -y wget make g++ gcc libfuse-dev fuse pkg-config
+	apt-get install -y --allow-unauthenticated wget make g++ gcc libfuse-dev fuse pkg-config
 }
 
 bonnie() {
@@ -38,7 +38,7 @@ fio_install() {
 }
 
 gen_file_install() {
-    GEN_FILE_VERSION=1.0.3
+    GEN_FILE_VERSION=1.0.4
     DIR=./gen_file_install
 
     wget https://github.com/bachm44/gen_file/releases/download/v$GEN_FILE_VERSION/gen_file-$GEN_FILE_VERSION.tar.gz
