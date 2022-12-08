@@ -10,12 +10,11 @@ PATHS = ["./copyfs", "./ext4", "./nilfs", "./waybackfs"]
 BUILD_DIR = "./build"
 
 
-
 class Bonnie:
     output_csv = BUILD_DIR + "/bonnie/bonnie++.csv"
     output_all_csv = BUILD_DIR + "/bonnie/all-bonnie++.csv"
     output_html = BUILD_DIR + "/bonnie/bonnie-graphs.html"
-    input_file = "out/bonnie/out.csv" 
+    input_file = "out/bonnie/out.csv"
 
     def __init__(self):
         result = ""
@@ -35,8 +34,7 @@ class Bonnie:
         with open(self.output_all_csv, "w") as f:
             f.write(result_all)
 
-        self.__generate_table() 
-    
+        self.__generate_table()
 
     def __read_row(self, row: str) -> str:
         splitted = row.split(",")
@@ -54,7 +52,6 @@ class Bonnie:
         splitted[-1] = str(splitted[-1]) + "\n"
 
         return ",".join(splitted)
-
 
     def __parse(self, rows):
         result = ""
@@ -81,14 +78,15 @@ class Bonnie:
                     if i not in count.keys():
                         count[i] = float(value)
                     else:
-                        if type(count[i]) is str: # handle case when in the same column there are +++++ and normal values
+                        if (
+                            type(count[i]) is str
+                        ):  # handle case when in the same column there are +++++ and normal values
                             count[i] = 0.0
                         count[i] = float(count[i]) + float(value)
 
         self.__average(len_rows, count)
 
         return "1.98" + ",".join([str(i) for i in count.values()]) + "\n"
-
 
     def __average(self, len_rows, count):
         to_skip = 10
@@ -103,11 +101,9 @@ class Bonnie:
             else:
                 count[i] = int(float(count[i]) / len_rows)
 
-
     def __generate_table(self):
         graphs_html = open(self.output_html, "w+")
         subprocess.call(["bon_csv2html", self.output_csv], stdout=graphs_html)
-    
 
 
 class Df:
@@ -116,15 +112,12 @@ class Df:
             self.before = before
             self.after = after
             self.name = name
-        
 
         def x(self):
             return self.name
-        
 
         def y(self):
             return self.after - self.before
-
 
     def __init__(self, input_file_before, input_file_after, output_image, title):
         self.input_file_before = input_file_before
@@ -132,97 +125,111 @@ class Df:
         self.output_image = output_image
         self.title = title
 
+        result = self.__parse()
+        self.__df_plot(result, self.title)
+
+    def __parse(self):
         result = []
-        df_lines = {'./copyfs': '/dev/sda1', './ext4': '/dev/sda1', './nilfs': '/dev/loop0', './waybackfs': '/dev/sda1'}
+        df_lines = {
+            "./copyfs": "/dev/sda1",
+            "./ext4": "/dev/sda1",
+            "./nilfs": "/dev/loop0",
+            "./waybackfs": "/dev/sda1",
+        }
         for path in PATHS:
             before = 0
             after = 0
             df_line_start = df_lines[path]
-            with open(f"fs/{path}/{self.input_file_before}") as f:
-                before = self.__df_results_read_file(f, df_line_start)
+            try:
+                with open(f"fs/{path}/{self.input_file_before}") as f:
+                    before = self.__df_results_read_file(f, df_line_start)
 
-            with open(f"fs/{path}/{self.input_file_after}") as f:
-                after = self.__df_results_read_file(f, df_line_start)
+                with open(f"fs/{path}/{self.input_file_after}") as f:
+                    after = self.__df_results_read_file(f, df_line_start)
+                result.append(self.__DfResult(before, after, path[2:]))
 
-            result.append(self.__DfResult(before, after, path[2:]))
-        
-        self.__df_plot(result, self.title)
+            except FileNotFoundError:
+                print(f"Cannot read df file for '{path}'. Skipping")
 
+        return result
 
     def __df_results_read_file(self, file, df_line_start):
         lines = []
         while line := file.readline():
             if df_line_start in line:
                 lines.append(line)
-        
+
         bytes_used = [int(line.split()[2]) for line in lines]
         return sum(bytes_used) / len(bytes_used)
-
 
     def __df_plot(self, results, title):
         x = [result.x() for result in results]
         y = [result.y() for result in results]
-        plt.bar(np.arange(len(y)), y ,color='blue',edgecolor='black')
+        plt.bar(np.arange(len(y)), y, color="blue", edgecolor="black")
         plt.xticks(np.arange(len(y)), x)
-        plt.xlabel('File system', fontsize=16)
-        plt.ylabel('Space used in bytes', fontsize=16)
+        plt.xlabel("File system", fontsize=16)
+        plt.ylabel("Space used in bytes", fontsize=16)
         plt.title(title, fontsize=16)
         plt.savefig(self.output_image)
         plt.cla()
 
 
-
 class Fio:
     data_dir = BUILD_DIR + "/fio/gnuplot"
+
     def __init__(self):
         for subdir, dirs, files in os.walk(self.data_dir):
             for file in files:
-                if 'average' in file:
+                if "average" in file:
                     print("Processing: ", file)
                     Fio.__process(os.path.join(subdir, file))
 
-
     def __get_data_files(path: str):
         for filename in os.listdir(path):
-            if os.path.isfile(os.path.join(path, filename)) and 'average' in filename:
+            if os.path.isfile(os.path.join(path, filename)) and "average" in filename:
                 yield filename
-    
 
     def __process(file: str):
         xx = []
         yy = []
         with open(file) as f:
             for line in f.readlines():
-                splitted_line = line.strip().split(' ')
-                if Fio.__does_list_contain_digit(splitted_line) and len(splitted_line) == 2:
+                splitted_line = line.strip().split(" ")
+                if (
+                    Fio.__does_list_contain_digit(splitted_line)
+                    and len(splitted_line) == 2
+                ):
                     yy.append(int(splitted_line[1]))
                 elif len(splitted_line) == 6:
-                    xx.append(splitted_line[5].split('_')[0])
+                    xx.append(splitted_line[5].split("_")[0])
 
-
-        #./build/fio/gnuplot/random_read_test_bw.average
+        # ./build/fio/gnuplot/random_read_test_bw.average
         # Match this part    ^--------------^
-        test_name = ' '.join(file.split('/')[-1].split('.')[0].split('_')[:3])
+        test_name = " ".join(file.split("/")[-1].split(".")[0].split("_")[:3])
         title = f"I/O Bandwidth for {test_name} test"
         xlabel = "File system"
         ylabel = "Throughput (KB/s)"
         filename = f"{BUILD_DIR}/{'_'.join(test_name.split(' '))}_average_bandwidth"
         Fio.__plot(xx, yy, title, xlabel, ylabel, filename)
 
-
     def __does_list_contain_digit(list):
         return len([s for s in list if s.isdigit()]) != 0
 
-
-    def __plot(xx: list[int], yy: list[int], title: str, xlabel: str, ylabel: str, filename: str):
-        plt.bar(np.arange(len(yy)), yy ,color='blue',edgecolor='black')
+    def __plot(
+        xx: list[int],
+        yy: list[int],
+        title: str,
+        xlabel: str,
+        ylabel: str,
+        filename: str,
+    ):
+        plt.bar(np.arange(len(yy)), yy, color="blue", edgecolor="black")
         plt.xticks(np.arange(len(yy)), xx)
         plt.xlabel(xlabel, fontsize=12)
         plt.ylabel(ylabel, fontsize=12)
         plt.title(title, fontsize=16)
         plt.savefig(filename)
         plt.cla()
-
 
 
 def create_dir(dir_name: str):

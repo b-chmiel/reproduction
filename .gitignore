@@ -9,3 +9,5 @@ test_template_env.sh
 **/.vagrant/
 logs/
 fio_generate_plots_reworked.sh
+.cache/
+compile_commands.json
