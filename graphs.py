@@ -1,42 +1,66 @@
 #!/usr/bin/env python3
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # type:ignore
+
 import numpy as np
 from pathlib import Path
 import subprocess
 import os
+from numbers import Number
 
 PATHS = ["./copyfs", "./ext4", "./nilfs", "./waybackfs"]
 BUILD_DIR = "./build"
 
 
+class Plot:
+    def __init__(
+        self,
+        x: list[str],
+        y: list[Number],
+        xlabel: str,
+        ylabel: str,
+        title: str,
+        filename: str,
+    ):
+        self.x = x
+        self.y = y
+        self.xlabel = xlabel
+        self.ylabel = ylabel
+        self.title = title
+        self.filename = filename
+
+    def plot(self):
+        plt.bar(np.arange(len(self.y)), self.y, color="blue", edgecolor="black")
+        plt.xticks(np.arange(len(self.y)), self.x)
+        plt.xlabel(self.xlabel, fontsize=16)
+        plt.ylabel(self.ylabel, fontsize=16)
+        plt.title(self.title, fontsize=16)
+        plt.savefig(self.filename)
+        plt.cla()
+
+
 class Bonnie:
     output_csv = BUILD_DIR + "/bonnie/bonnie++.csv"
-    output_all_csv = BUILD_DIR + "/bonnie/all-bonnie++.csv"
     output_html = BUILD_DIR + "/bonnie/bonnie-graphs.html"
     input_file = "out/bonnie/out.csv"
 
     def __init__(self):
-        result = ""
-        result_all = ""
-
-        for path in PATHS:
-            with open(f"fs/{path}/{self.input_file}") as f:
-                current_output = ""
-                while line := f.readline().rstrip():
-                    current_output += self.__read_row(line)
-                result += self.__parse(current_output)
-                result_all += current_output
-
-        with open(self.output_csv, "w") as f:
-            f.write(result)
-
-        with open(self.output_all_csv, "w") as f:
-            f.write(result_all)
-
+        result = self.__parse()
+        self.__save(result)
         self.__generate_table()
 
-    def __read_row(self, row: str) -> str:
+    def __parse(self):
+        result = ""
+        for path in PATHS:
+            with open(f"fs/{path}/{self.input_file}") as f:
+                bonnie_output = ""
+                while line := f.readline().rstrip():
+                    bonnie_output += self.__convert_units(line)
+                result += self.__merge_rows_into_average(bonnie_output)
+
+        return result
+
+    def __convert_units(self, row: str) -> str:
         splitted = row.split(",")
 
         for i, field in enumerate(splitted):
@@ -56,7 +80,7 @@ class Bonnie:
 
         return ",".join(splitted)
 
-    def __parse(self, rows):
+    def __merge_rows_into_average(self, rows):
         result = ""
         count = {}
         len_rows = 0
@@ -104,6 +128,10 @@ class Bonnie:
             else:
                 count[i] = float(count[i]) / len_rows
 
+    def __save(self, result):
+        with open(self.output_csv, "w") as f:
+            f.write(result)
+
     def __generate_table(self):
         graphs_html = open(self.output_html, "w+")
         subprocess.call(["bon_csv2html", self.output_csv], stdout=graphs_html)
@@ -129,7 +157,7 @@ class Df:
         self.title = title
 
         result = self.__parse()
-        self.__df_plot(result, self.title)
+        self.__plot(result, self.title)
 
     def __parse(self):
         result = []
@@ -165,16 +193,15 @@ class Df:
         bytes_used = [int(line.split()[2]) for line in lines]
         return sum(bytes_used) / len(bytes_used)
 
-    def __df_plot(self, results, title):
+    def __plot(self, results, title: str):
         x = [result.x() for result in results]
         y = [result.y() for result in results]
-        plt.bar(np.arange(len(y)), y, color="blue", edgecolor="black")
-        plt.xticks(np.arange(len(y)), x)
-        plt.xlabel("File system", fontsize=16)
-        plt.ylabel("Space used (GB)", fontsize=16)
-        plt.title(title, fontsize=16)
-        plt.savefig(self.output_image)
-        plt.cla()
+        xlabel = "File system"
+        ylabel = "Space used (GB)"
+        filename = self.output_image
+
+        p = Plot(x, y, xlabel, ylabel, title, filename)
+        p.plot()
 
 
 class Fio:
@@ -185,21 +212,16 @@ class Fio:
             for file in files:
                 if "average" in file:
                     print("Processing: ", file)
-                    Fio.__process(os.path.join(subdir, file))
+                    self.__process(os.path.join(subdir, file))
 
-    def __get_data_files(path: str):
-        for filename in os.listdir(path):
-            if os.path.isfile(os.path.join(path, filename)) and "average" in filename:
-                yield filename
-
-    def __process(file: str):
+    def __process(self, file_path: str):
         xx = []
         yy = []
-        with open(file) as f:
+        with open(file_path) as f:
             for line in f.readlines():
                 splitted_line = line.strip().split(" ")
                 if (
-                    Fio.__does_list_contain_digit(splitted_line)
+                    self.__does_list_contain_digit(splitted_line)
                     and len(splitted_line) == 2
                 ):
                     throughput = int(splitted_line[1]) / 1000  # in megabytes / s
@@ -207,33 +229,22 @@ class Fio:
                 elif len(splitted_line) == 6:
                     xx.append(splitted_line[5].split("_")[0])
 
+        self.__plot(xx, yy, file_path)
+
+    def __plot(self, xx, yy, file_path):
         # ./build/fio/gnuplot/random_read_test_bw.average
         # Match this part    ^--------------^
-        test_name = " ".join(file.split("/")[-1].split(".")[0].split("_")[:3])
+        test_name = " ".join(file_path.split("/")[-1].split(".")[0].split("_")[:3])
         title = f"I/O Bandwidth for {test_name} test"
         xlabel = "File system"
         ylabel = "Throughput (MB/s)"
         filename = f"{BUILD_DIR}/{'_'.join(test_name.split(' '))}_average_bandwidth"
-        Fio.__plot(xx, yy, title, xlabel, ylabel, filename)
+        # self.__plot(xx, yy, title, xlabel, ylabel, filename)
+        p = Plot(xx, yy, xlabel, ylabel, title, filename)
+        p.plot()
 
-    def __does_list_contain_digit(list):
+    def __does_list_contain_digit(self, list):
         return len([s for s in list if s.isdigit()]) != 0
-
-    def __plot(
-        xx: list[int],
-        yy: list[int],
-        title: str,
-        xlabel: str,
-        ylabel: str,
-        filename: str,
-    ):
-        plt.bar(np.arange(len(yy)), yy, color="blue", edgecolor="black")
-        plt.xticks(np.arange(len(yy)), xx)
-        plt.xlabel(xlabel, fontsize=12)
-        plt.ylabel(ylabel, fontsize=12)
-        plt.title(title, fontsize=16)
-        plt.savefig(filename)
-        plt.cla()
 
 
 def create_dir(dir_name: str):
