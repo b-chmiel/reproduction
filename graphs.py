@@ -44,10 +44,13 @@ class Bonnie:
             if i < 10 or field == "" or field == "+++++" or field == "+++":
                 continue
 
+            if "us" in field:
+                field = field.strip()
+                splitted[i] = str(int(field[:-2]) / 1000) + "ms"
+
             if "ms" in field:
                 field = field.strip()
-                # convert millis to micros
-                splitted[i] = str(int(field[:-2]) * 1000) + "us"
+                splitted[i] = str(int(field[:-2])) + "ms"
 
         splitted[-1] = str(splitted[-1]) + "\n"
 
@@ -67,11 +70,11 @@ class Bonnie:
                 if to_skip > 0:
                     to_skip -= 1
                     count[i] = value
-                elif "us" in value:
+                elif "ms" in value:
                     if i not in count.keys():
                         count[i] = value
                     else:
-                        count[i] = f"{int(int(count[i][:-2]) + int(value[:-2]))}us"
+                        count[i] = f"{int(int(count[i][:-2]) + int(value[:-2]))}ms"
                 elif "+" in value or value == "":
                     count[i] = value
                 else:
@@ -96,10 +99,10 @@ class Bonnie:
             if to_skip > 0:
                 to_skip -= 1
             elif isinstance(value, str):
-                if "us" in value:
-                    count[i] = f"{int(int(count[i][:-2]) / len_rows)}us"
+                if "ms" in value:
+                    count[i] = f"{float(count[i][:-2]) / len_rows}ms"
             else:
-                count[i] = int(float(count[i]) / len_rows)
+                count[i] = float(count[i]) / len_rows
 
     def __generate_table(self):
         graphs_html = open(self.output_html, "w+")
@@ -117,7 +120,7 @@ class Df:
             return self.name
 
         def y(self):
-            return self.after - self.before
+            return (self.after - self.before) / 1000_000  # in gigabytes
 
     def __init__(self, input_file_before, input_file_after, output_image, title):
         self.input_file_before = input_file_before
@@ -168,7 +171,7 @@ class Df:
         plt.bar(np.arange(len(y)), y, color="blue", edgecolor="black")
         plt.xticks(np.arange(len(y)), x)
         plt.xlabel("File system", fontsize=16)
-        plt.ylabel("Space used in bytes", fontsize=16)
+        plt.ylabel("Space used (GB)", fontsize=16)
         plt.title(title, fontsize=16)
         plt.savefig(self.output_image)
         plt.cla()
@@ -199,7 +202,8 @@ class Fio:
                     Fio.__does_list_contain_digit(splitted_line)
                     and len(splitted_line) == 2
                 ):
-                    yy.append(int(splitted_line[1]))
+                    throughput = int(splitted_line[1]) / 1000  # in megabytes / s
+                    yy.append(throughput)
                 elif len(splitted_line) == 6:
                     xx.append(splitted_line[5].split("_")[0])
 
@@ -208,7 +212,7 @@ class Fio:
         test_name = " ".join(file.split("/")[-1].split(".")[0].split("_")[:3])
         title = f"I/O Bandwidth for {test_name} test"
         xlabel = "File system"
-        ylabel = "Throughput (KB/s)"
+        ylabel = "Throughput (MB/s)"
         filename = f"{BUILD_DIR}/{'_'.join(test_name.split(' '))}_average_bandwidth"
         Fio.__plot(xx, yy, title, xlabel, ylabel, filename)
 
