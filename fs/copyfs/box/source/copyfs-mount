@@ -6,7 +6,7 @@
 # This program can be distributed under the terms of the GNU GPL.
 # See the file COPYING.
 
-FILESYSTEM_HANDLER=copyfs-daemon
+FILESYSTEM_HANDLER=./copyfs-daemon
 
 # Force single-threaded mode, as we aren't MT safe
 FILESYSTEM_PARAMETERS="-s"
