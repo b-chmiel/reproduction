@@ -2,8 +2,19 @@
 
 set -euo pipefail
 
-rm -rfv /tmp/copyfs
-mkdir -pv /tmp/copyfs/{files,versions}
-echo "1:0:0755:0:0:$(basename /tmp/copyfs/files)" > /tmp/copyfs/files/metadata.
-chmod 700 /tmp/copyfs/files/metadata.
-RCS_VERSION_PATH=/tmp/copyfs/versions ./copyfs-daemon -f -d -s /tmp/copyfs/files -o nonempty
+ROOT_DIR=/tmp/copyfs
+VERSION_DIR="$ROOT_DIR/versions"
+FILES_DIR="$ROOT_DIR/files"
+
+echo "ROOT_DIR: $ROOT_DIR"
+echo "VERSION_DIR: $VERSION_DIR"
+echo "FILES_DIR: $FILES_DIR"
+
+umount $FILES_DIR || true
+rm -rfv $ROOT_DIR
+mkdir -pv $VERSION_DIR
+mkdir -pv $FILES_DIR
+
+echo "1:0:0755:0:0:files" > $VERSION_DIR/metadata.
+chmod 700 $VERSION_DIR/metadata.
+RCS_VERSION_PATH=$VERSION_DIR ./copyfs-daemon -f -d -s $FILES_DIR -o nonempty
