@@ -98,7 +98,7 @@ class Bonnie:
                     if i not in count.keys():
                         count[i] = value
                     else:
-                        count[i] = f"{int(int(count[i][:-2]) + int(value[:-2]))}ms"
+                        count[i] = f"{int(float(count[i][:-2]) + float(value[:-2]))}ms"
                 elif "+" in value or value == "":
                     count[i] = value
                 else:
