@@ -10,6 +10,7 @@
 #include <libexplain/libexplain.h>
 #include <pty.h>
 #include <signal.h>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <sys/ioctl.h>
@@ -20,7 +21,7 @@ using namespace std;
 using namespace std::this_thread;
 
 static string output;
-static string tty_name;
+static string tty_name = "";
 
 atomic<bool> quit(false);
 
@@ -70,10 +71,18 @@ void act_when_qemu_started() {
     sleep_for(1s);
   }
 
+  if (quit.load()) {
+    return;
+  }
+
   cout << "\nAttaching to tty: " << tty_name << '\n';
+  if (tty_name == "") {
+    throw runtime_error("tty_name not set by Pty");
+  }
+
   Tty tty(tty_name);
-  tty.execute("ls");
-  tty.execute("\n");
+  tty.execute("ls\n");
+  tty.execute("exit\n");
 }
 
 void sigint_handler(int) { quit.store(true); }
@@ -96,49 +105,63 @@ void validate_if_run_as_sudo() {
   }
 }
 
+class Pty {
+public:
+  Pty() {
+    const auto e = openpty(&master_fd, &slave_fd, &name[0], nullptr, nullptr);
+    if (e < 0) [[unlikely]] {
+      throw runtime_error(strerror(errno));
+    }
+
+    tty_name = string(name);
+    cout << "Slave PTY: " << tty_name << '\n';
+
+    change_pty_ownership_to_user();
+  }
+
+  void read_output() {
+    int r;
+    while (not quit.load() and
+           (r = read(master_fd, &name[0], sizeof(name) - 1)) > 0) {
+      name[r] = '\0';
+      const string_view line(&name[0]);
+      output += line;
+      printf("%s", line.data());
+    }
+  }
+
+  ~Pty() {
+    close(master_fd);
+    close(slave_fd);
+  }
+
+private:
+  int master_fd;
+  int slave_fd;
+  char name[BUFSIZ];
+
+  void change_pty_ownership_to_user() {
+    if (not getenv("SUDO_UID")) {
+      throw runtime_error("Must be run by sudo!");
+    }
+
+    const uid_t uid = stoi(getenv("SUDO_UID"));
+
+    fchown(master_fd, uid, uid);
+    fchown(slave_fd, uid, uid);
+  }
+};
+
 // https://stackoverflow.com/questions/33237254/how-to-create-pty-that-is-connectable-by-screen-app-in-linux
 int main() {
   validate_if_run_as_sudo();
   setup_signal_handler();
   thread t(act_when_qemu_started);
+  Pty pty;
+  pty.read_output();
 
-  int master, slave;
-  char name[BUFSIZ];
-  const auto e = openpty(&master, &slave, &name[0], nullptr, nullptr);
-  if (e < 0) [[unlikely]] {
-    printf("Error: %s\n", strerror(errno));
-    return -1;
-  }
-
-  tty_name = string(name);
-
-  if (not getenv("SUDO_UID")) {
-    cout << "Must be run by sudo!\n";
-    t.join();
-    close(master);
-    close(slave);
-  }
-
-  const uid_t uid = stoi(getenv("SUDO_UID"));
-
-  fchown(master, uid, uid);
-  fchown(slave, uid, uid);
-
-  printf("Slave PTY: %s\n", name);
-
-  int r;
-  while (not quit.load() and
-         (r = read(master, &name[0], sizeof(name) - 1)) > 0) {
-    name[r] = '\0';
-    const string_view line(&name[0]);
-    output += line;
-    printf("%s", line.data());
-  }
-
-  cout << "Cleanup" << '\n';
+  cout << "Cleanup\n";
   t.join();
-  close(slave);
-  close(master);
 
   return 0;
 }
