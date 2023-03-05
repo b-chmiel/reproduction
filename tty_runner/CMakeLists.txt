@@ -10,5 +10,6 @@ if (${HAVE_LIBEXPLAIN})
 	add_definitions(-DHAVE_LIBEXPLAIN)
 endif()
 
-add_executable(tty tty.cpp)
-target_link_libraries(tty explain)
+find_package(Boost 1.81 COMPONENTS program_options REQUIRED)
+
+add_subdirectory(src)

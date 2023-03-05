@@ -1,3 +1,4 @@
+#include "arg.hpp"
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -19,6 +20,7 @@
 
 using namespace std;
 using namespace std::this_thread;
+using namespace tty::arg;
 
 static string output;
 static string tty_name = "";
@@ -153,10 +155,18 @@ private:
 };
 
 // https://stackoverflow.com/questions/33237254/how-to-create-pty-that-is-connectable-by-screen-app-in-linux
-int main() {
+int main(int argc, char *argv[]) {
   validate_if_run_as_sudo();
   setup_signal_handler();
+
+  tty::arg::Arg args(argc, argv);
+  cout << args << '\n';
+  if (args.mode == CliMode::HELP) {
+    return 0;
+  }
+
   thread t(act_when_qemu_started);
+
   Pty pty;
   pty.read_output();
 
