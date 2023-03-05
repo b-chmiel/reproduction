@@ -36,11 +36,11 @@ Arg::Arg(int argc, char* argv[])
     // clang-format off
   desc.add_options()
 	(option_names.at(Option::HELP), "produce help message")
-	(option_names.at(Option::PATH_TO_MAKEFILE), po::value<string>(),
+	(option_names.at(Option::PATH_TO_MAKEFILE), po::value<string>()->required(),
       "Path to Makefile of automated vfs project with custom kernel")
-	(option_names.at(Option::COMMAND_LIST), po::value<string>(),
+	(option_names.at(Option::COMMAND_LIST), po::value<string>()->required(),
       "Path to file with commands listed line by line")
-	(option_names.at(Option::OUTPUT_FILE), po::value<string>(),
+	(option_names.at(Option::OUTPUT_FILE), po::value<string>()->default_value(this->output_file),
       "Filename of file with results from commands execution (without "
       "kernel "
       "startup messages)");
@@ -61,26 +61,14 @@ Arg::Arg(int argc, char* argv[])
     {
         this->path_to_makefile = vm[option_names.at(Option::PATH_TO_MAKEFILE)].as<string>();
     }
-    else
-    {
-        throw runtime_error("path to makefile is required");
-    }
 
     if (vm.count(option_names.at(Option::COMMAND_LIST)))
     {
         this->command_list_file = vm[option_names.at(Option::COMMAND_LIST)].as<string>();
     }
-    else
-    {
-        throw runtime_error("path to command list file is required");
-    }
 
     if (vm.count(option_names.at(Option::OUTPUT_FILE)))
     {
         this->output_file = vm[option_names.at(Option::OUTPUT_FILE)].as<string>();
-    }
-    else
-    {
-        throw runtime_error("path to output file is required");
     }
 }
