@@ -4,3 +4,6 @@
 [submodule "waybackfs/source"]
 	path = waybackfs/box/source
 	url = git@github.com:bachm44/wayback.git
+[submodule "fs/nilfs-dedup"]
+	path = fs/nilfs-dedup
+	url = git@github.com:bachm44/nilfs-dedup.git
