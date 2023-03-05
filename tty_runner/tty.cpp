@@ -43,10 +43,12 @@ public:
       const int result = ioctl(fd, TIOCSTI, &ch);
 
       if (result < 0) [[unlikely]] {
-        string_view cmd = "c"sv;
+#ifdef HAVE_LIBEXPLAIN
         cout << "Cannot execute command: "
-             << explain_errno_ioctl(errno, fd, TIOCSTI, (void *)cmd.data())
-             << '\n';
+             << explain_errno_ioctl(errno, fd, TIOCSTI, &ch) << '\n';
+#else
+        cout << "Cannot execute command: " << strerror(errno) << '\n';
+#endif
       }
     }
   }

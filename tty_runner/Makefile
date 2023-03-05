@@ -1,0 +1,16 @@
+.PHONY = compile
+
+BUILD_DIR = build
+
+BUILD_SYSTEM_FILENAME=build.ninja
+BUILD_SYSTEM_NAME=Ninja
+BUILD_SYSTEM_COMMAND=ninja
+
+compile: $(BUILD_DIR)/$(BUILD_SYSTEM_FILENAME) 
+	cmake --build ${BUILD_DIR}
+
+$(BUILD_DIR)/$(BUILD_SYSTEM_FILENAME): CMakeLists.txt
+	cmake . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G"$(BUILD_SYSTEM_NAME)" -B $(BUILD_DIR)
+
+clean:
+	- rm -rf $(BUILD_DIR)
