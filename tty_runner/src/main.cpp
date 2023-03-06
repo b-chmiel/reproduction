@@ -12,9 +12,8 @@
 #include <errno.h>
 #include <exception>
 #include <fcntl.h>
+#include <fstream>
 #include <iostream>
-#include <libexplain/ioctl.h>
-#include <libexplain/libexplain.h>
 #include <memory>
 #include <mutex>
 #include <pty.h>
@@ -25,6 +24,11 @@
 #include <sys/ioctl.h>
 #include <thread>
 #include <unistd.h>
+#include <vector>
+
+#ifdef HAVE_LIBEXPLAIN
+#include <libexplain/open.h>
+#endif
 
 using namespace std;
 using namespace std::this_thread;
@@ -32,15 +36,15 @@ using namespace tty;
 using namespace tty::arg;
 using namespace std::literals;
 
-string output;
+string tty_output;
 string tty_name = "";
 mutex tty_name_mutex;
-shared_ptr<FileDescriptor> slave_fd;
+shared_ptr<FileDescriptor> pty_slave_fd;
 
 atomic<bool> quit(false);
 atomic<bool> tty_launched(false);
 
-void run_qemu_executor()
+void run_qemu_executor(const vector<string>& commands)
 {
     cout << "Launched " << __func__ << " thread\n";
 
@@ -48,7 +52,7 @@ void run_qemu_executor()
 
     sleep_for(3s);
 
-    while (not quit.load() and not string_contains(output, "Starting network: OK"sv))
+    while (not quit.load() and not string_contains(tty_output, "Starting network: OK"sv))
     {
         sleep_for(1s);
     }
@@ -61,10 +65,15 @@ void run_qemu_executor()
     TtyExecutor tty(tty_name);
     cout << "\nAttached to tty: " << tty_name << '\n';
 
-    tty.execute("ls\n");
+    for (const auto& cmd : commands)
+    {
+        tty.execute(cmd + "\n");
+    }
+
     tty.execute("reboot\n");
 
     cout << "Stopped " << __func__ << " thread\n";
+
     quit.store(true);
     quit.notify_all();
 }
@@ -81,6 +90,9 @@ void run_qemu(const string& makefile_path)
     system(command.c_str());
 
     cout << "Stopped qemu instance\n";
+
+    quit.store(true);
+    quit.notify_all();
 }
 
 void run_pty()
@@ -90,11 +102,13 @@ void run_pty()
     PtyLauncher pty(tty_name);
     tty_launched.store(true);
     tty_launched.notify_all();
-    slave_fd = pty.slave;
+    pty_slave_fd = pty.slave;
 
-    pty.read_output(quit, output);
+    pty.read_output(quit, tty_output);
 
     cout << "Stopped " << __func__ << " thread\n";
+    quit.store(true);
+    quit.notify_all();
 }
 
 void run_pty_killer()
@@ -106,8 +120,8 @@ void run_pty_killer()
     // unfortunately slave_fd destructor is not called
     // so manual deletion is required.
 
-    close(slave_fd->fd);
-    slave_fd.reset();
+    close(pty_slave_fd->fd);
+    pty_slave_fd.reset();
 }
 
 void sigint_handler(int)
@@ -136,6 +150,28 @@ void validate_if_run_as_sudo()
     }
 }
 
+vector<string> parse_commands(const string& filename)
+{
+    ifstream file(filename);
+    if (not file.is_open())
+    {
+#ifdef HAVE_LIBEXPLAIN
+        throw runtime_error("Could not open file: "s + explain_open(filename.c_str(), O_RDONLY, _S_in));
+#else
+        throw runtime_error("Could not open file");
+#endif
+    }
+
+    string line {};
+    vector<string> result {};
+    while (getline(file, line))
+    {
+        result.emplace_back(line);
+    }
+
+    return result;
+}
+
 // https://stackoverflow.com/questions/33237254/how-to-create-pty-that-is-connectable-by-screen-app-in-linux
 int main(int argc, char* argv[])
 {
@@ -150,15 +186,20 @@ int main(int argc, char* argv[])
 
     cout << args << '\n';
 
+    const vector<string> commands = parse_commands(args.command_list_file);
+
     thread pty(run_pty);
     thread killer(run_pty_killer);
     thread qemu(run_qemu, args.path_to_makefile);
-    thread executor(run_qemu_executor);
+    thread executor(run_qemu_executor, commands);
 
     pty.join();
     killer.join();
     qemu.join();
     executor.join();
+
+    ofstream output(args.output_file);
+    output << tty_output;
 
     return 0;
 }

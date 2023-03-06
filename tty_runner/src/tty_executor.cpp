@@ -3,9 +3,12 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
-#include <libexplain/ioctl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+#ifdef HAVE_LIBEXPLAIN
+#include <libexplain/ioctl.h>
+#endif
 
 using namespace tty;
 using namespace std;
