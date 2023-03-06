@@ -1,16 +1,22 @@
 #include "arg.hpp"
+#include "fd.hpp"
 #include "pty_launcher.hpp"
 #include "tty_executor.hpp"
+#include "utils.hpp"
+
 #include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <errno.h>
+#include <exception>
 #include <fcntl.h>
 #include <iostream>
 #include <libexplain/ioctl.h>
 #include <libexplain/libexplain.h>
+#include <memory>
+#include <mutex>
 #include <pty.h>
 #include <signal.h>
 #include <stdexcept>
@@ -24,20 +30,21 @@ using namespace std;
 using namespace std::this_thread;
 using namespace tty;
 using namespace tty::arg;
+using namespace std::literals;
 
-static string output;
-static string tty_name = "";
+string output;
+string tty_name = "";
+mutex tty_name_mutex;
+shared_ptr<FileDescriptor> slave_fd;
 
 atomic<bool> quit(false);
+atomic<bool> tty_launched(false);
 
-inline bool string_contains(const string_view& s, const string_view& other)
+void run_qemu_executor()
 {
-    return s.find(other) != string::npos;
-}
+    cout << "Launched " << __func__ << " thread\n";
 
-void act_when_qemu_started()
-{
-    using namespace std::literals;
+    tty_launched.wait(false);
 
     sleep_for(3s);
 
@@ -51,18 +58,62 @@ void act_when_qemu_started()
         return;
     }
 
-    cout << "\nAttaching to tty: " << tty_name << '\n';
-    if (tty_name == "")
-    {
-        throw runtime_error("tty_name not set by Pty");
-    }
-
     TtyExecutor tty(tty_name);
+    cout << "\nAttached to tty: " << tty_name << '\n';
+
     tty.execute("ls\n");
-    tty.execute("exit\n");
+    tty.execute("reboot\n");
+
+    cout << "Stopped " << __func__ << " thread\n";
+    quit.store(true);
+    quit.notify_all();
 }
 
-void sigint_handler(int) { quit.store(true); }
+void run_qemu(const string& makefile_path)
+{
+    cout << "Launched " << __func__ << " thread\n";
+
+    tty_launched.wait(false);
+
+    cout << "Launching qemu instance\n";
+
+    const string command = "SERIAL_TTY=" + tty_name + " make -C " + makefile_path + " vm-tty ";
+    system(command.c_str());
+
+    cout << "Stopped qemu instance\n";
+}
+
+void run_pty()
+{
+    cout << "Launched " << __func__ << " thread\n";
+
+    PtyLauncher pty(tty_name);
+    tty_launched.store(true);
+    tty_launched.notify_all();
+    slave_fd = pty.slave;
+
+    pty.read_output(quit, output);
+
+    cout << "Stopped " << __func__ << " thread\n";
+}
+
+void run_pty_killer()
+{
+    tty_launched.wait(false);
+    quit.wait(false);
+    cout << "Starting pty kill\n";
+
+    // unfortunately slave_fd destructor is not called
+    // so manual deletion is required.
+
+    close(slave_fd->fd);
+    slave_fd.reset();
+}
+
+void sigint_handler(int)
+{
+    quit.store(true);
+}
 
 void setup_signal_handler()
 {
@@ -85,13 +136,6 @@ void validate_if_run_as_sudo()
     }
 }
 
-void run_qemu(const string& makefile_path, const string& pty_name)
-{
-    const string command = "SERIAL_TTY=" + pty_name + " make -C " + makefile_path + " vm-tty ";
-    cout << "Launching qemu instance\n";
-    system(command.c_str());
-}
-
 // https://stackoverflow.com/questions/33237254/how-to-create-pty-that-is-connectable-by-screen-app-in-linux
 int main(int argc, char* argv[])
 {
@@ -99,22 +143,22 @@ int main(int argc, char* argv[])
     setup_signal_handler();
 
     tty::arg::Arg args(argc, argv);
-    cout << args << '\n';
     if (args.mode == CliMode::HELP)
     {
         return 0;
     }
 
-    PtyLauncher pty(tty_name);
-    pty.read_output(quit, output);
-    // TODO launch this on separate thread
+    cout << args << '\n';
 
-    thread qemu(run_qemu, args.path_to_makefile, tty_name);
-    // thread executor(act_when_qemu_started);
+    thread pty(run_pty);
+    thread killer(run_pty_killer);
+    thread qemu(run_qemu, args.path_to_makefile);
+    thread executor(run_qemu_executor);
 
-    cout << "Cleanup\n";
+    pty.join();
+    killer.join();
     qemu.join();
-    // executor.join();
+    executor.join();
 
     return 0;
 }

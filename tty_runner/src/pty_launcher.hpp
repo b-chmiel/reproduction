@@ -1,8 +1,11 @@
 #pragma once
 
+#include "fd.hpp"
 #include <atomic>
 #include <cstdio>
+#include <memory>
 #include <string>
+
 namespace tty
 {
 class PtyLauncher
@@ -13,11 +16,11 @@ public:
     PtyLauncher& operator=(const PtyLauncher&) = delete;
 
     void read_output(const std::atomic<bool>& quit, std::string& output);
-    ~PtyLauncher();
+
+    std::shared_ptr<FileDescriptor> slave;
 
 private:
-    int master_fd;
-    int slave_fd;
+    std::unique_ptr<FileDescriptor> master;
     char name[BUFSIZ];
 
     void change_pty_ownership_to_user();
