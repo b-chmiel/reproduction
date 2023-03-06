@@ -1,4 +1,6 @@
 #include "arg.hpp"
+#include "pty_launcher.hpp"
+#include "tty_executor.hpp"
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -20,6 +22,7 @@
 
 using namespace std;
 using namespace std::this_thread;
+using namespace tty;
 using namespace tty::arg;
 
 static string output;
@@ -31,45 +34,6 @@ inline bool string_contains(const string_view& s, const string_view& other)
 {
     return s.find(other) != string::npos;
 }
-
-class Tty
-{
-public:
-    explicit Tty(const string& name)
-        : name(name)
-    {
-        fd = open(this->name.data(), O_RDWR);
-
-        if (fd < 0) [[unlikely]]
-        {
-            cout << "Cannot open file: " << strerror(errno) << '\n';
-        }
-    }
-
-    void execute(const string& command)
-    {
-        for (char ch : command)
-        {
-            const int result = ioctl(fd, TIOCSTI, &ch);
-
-            if (result < 0) [[unlikely]]
-            {
-#ifdef HAVE_LIBEXPLAIN
-                cout << "Cannot execute command: "
-                     << explain_errno_ioctl(errno, fd, TIOCSTI, &ch) << '\n';
-#else
-                cout << "Cannot execute command: " << strerror(errno) << '\n';
-#endif
-            }
-        }
-    }
-
-    ~Tty() { close(fd); }
-
-private:
-    const string_view name;
-    int fd;
-};
 
 void act_when_qemu_started()
 {
@@ -93,7 +57,7 @@ void act_when_qemu_started()
         throw runtime_error("tty_name not set by Pty");
     }
 
-    Tty tty(tty_name);
+    TtyExecutor tty(tty_name);
     tty.execute("ls\n");
     tty.execute("exit\n");
 }
@@ -121,59 +85,12 @@ void validate_if_run_as_sudo()
     }
 }
 
-class Pty
+void run_qemu(const string& makefile_path, const string& pty_name)
 {
-public:
-    Pty()
-    {
-        const auto e = openpty(&master_fd, &slave_fd, &name[0], nullptr, nullptr);
-        if (e < 0) [[unlikely]]
-        {
-            throw runtime_error(strerror(errno));
-        }
-
-        tty_name = string(name);
-        cout << "Slave PTY: " << tty_name << '\n';
-
-        change_pty_ownership_to_user();
-    }
-
-    void read_output()
-    {
-        int r;
-        while (not quit.load() and (r = read(master_fd, &name[0], sizeof(name) - 1)) > 0)
-        {
-            name[r] = '\0';
-            const string_view line(&name[0]);
-            output += line;
-            printf("%s", line.data());
-        }
-    }
-
-    ~Pty()
-    {
-        close(master_fd);
-        close(slave_fd);
-    }
-
-private:
-    int master_fd;
-    int slave_fd;
-    char name[BUFSIZ];
-
-    void change_pty_ownership_to_user()
-    {
-        if (not getenv("SUDO_UID"))
-        {
-            throw runtime_error("Must be run by sudo!");
-        }
-
-        const uid_t uid = stoi(getenv("SUDO_UID"));
-
-        fchown(master_fd, uid, uid);
-        fchown(slave_fd, uid, uid);
-    }
-};
+    const string command = "SERIAL_TTY=" + pty_name + " make -C " + makefile_path + " vm-tty ";
+    cout << "Launching qemu instance\n";
+    system(command.c_str());
+}
 
 // https://stackoverflow.com/questions/33237254/how-to-create-pty-that-is-connectable-by-screen-app-in-linux
 int main(int argc, char* argv[])
@@ -188,13 +105,16 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    thread t(act_when_qemu_started);
+    PtyLauncher pty(tty_name);
+    pty.read_output(quit, output);
+    // TODO launch this on separate thread
 
-    Pty pty;
-    pty.read_output();
+    thread qemu(run_qemu, args.path_to_makefile, tty_name);
+    // thread executor(act_when_qemu_started);
 
     cout << "Cleanup\n";
-    t.join();
+    qemu.join();
+    // executor.join();
 
     return 0;
 }
