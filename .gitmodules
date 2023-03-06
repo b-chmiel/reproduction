@@ -7,3 +7,6 @@
 [submodule "fs/nilfs-dedup"]
 	path = fs/nilfs-dedup
 	url = git@github.com:bachm44/nilfs-dedup.git
+[submodule "tools/gen_file"]
+	path = tools/gen_file
+	url = git@github.com:bachm44/gen_file.git
