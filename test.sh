@@ -61,7 +61,7 @@ generate_gnuplot() {
 export -f generate_gnuplot
 
 main() {
-	file_systems=('copyfs' 'ext4' 'nilfs' 'waybackfs')
+	file_systems=('copyfs' 'nilfs' 'waybackfs')
 	fio_tests=('file_append_read_test' 'file_append_write_test' 'random_read_test' 'random_write_test')
 
 	mkdir -pv $LOG_DIR

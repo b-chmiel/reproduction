@@ -35,7 +35,7 @@ build_box() {
 export -f build_box
 
 main() {
-	file_systems=('copyfs' 'ext4' 'nilfs' 'waybackfs')
+	file_systems=('copyfs' 'nilfs' 'waybackfs')
 
 	log "Building vagrant base boxes for: ${file_systems[*]}"
 
