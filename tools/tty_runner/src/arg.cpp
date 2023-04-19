@@ -1,5 +1,6 @@
 #include "arg.hpp"
 #include <argp.h>
+#include <boost/exception/diagnostic_information.hpp>
 #include <boost/program_options.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -47,8 +48,18 @@ Arg::Arg(int argc, char* argv[])
     // clang-format on
 
     po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+    try
+    {
+        po::store(po::parse_command_line(argc, argv, desc), vm);
+        po::notify(vm);
+    }
+    catch (const boost::exception& ex)
+    {
+        cerr << boost::diagnostic_information(ex) << '\n';
+        cout << desc << '\n';
+        this->mode = CliMode::HELP;
+        return;
+    }
 
     if (vm.count(option_names.at(Option::HELP)))
     {

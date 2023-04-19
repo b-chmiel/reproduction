@@ -140,13 +140,9 @@ void setup_signal_handler()
 
 void validate_if_run_as_sudo()
 {
-    const auto me = getuid();
-    const auto privileges = geteuid();
-
-    if (me != privileges)
+    if (getuid() != 0)
     {
-        cout << "Must be run by sudo!\n";
-        exit(EXIT_FAILURE);
+        throw runtime_error("This program must be run by sudo!");
     }
 }
 
@@ -178,7 +174,7 @@ int main(int argc, char* argv[])
     validate_if_run_as_sudo();
     setup_signal_handler();
 
-    tty::arg::Arg args(argc, argv);
+    const tty::arg::Arg args(argc, argv);
     if (args.mode == CliMode::HELP)
     {
         return 0;
