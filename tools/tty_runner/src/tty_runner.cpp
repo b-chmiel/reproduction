@@ -150,6 +150,12 @@ bool tty::output_contains(const string_view& query)
 
 void tty::run(const tty::arg::Arg& args)
 {
+    tty_output = "";
+    tty_name = "";
+    pty_slave_fd = { nullptr };
+    quit = false;
+    tty_launched = false;
+
     setup_signal_handler();
 
     {

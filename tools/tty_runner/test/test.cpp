@@ -55,7 +55,8 @@ BOOST_AUTO_TEST_CASE(setup)
 
 BOOST_AUTO_TEST_CASE(boot_ok)
 {
-    tty_contains_with_timeout("Starting network: OK", timeout);
+    tty_contains_with_timeout("Running sysctl", timeout);
+    tty_contains_with_timeout("Starting network", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(verify_before_dedup)
@@ -99,7 +100,8 @@ BOOST_AUTO_TEST_CASE(setup, *utf::depends_on("dedup_in_memory/teardown"))
 }
 BOOST_AUTO_TEST_CASE(boot_ok, *utf::depends_on("dedup_in_memory/teardown"))
 {
-    tty_contains_with_timeout("Starting network: OK", timeout);
+    tty_contains_with_timeout("Running sysctl", timeout);
+    tty_contains_with_timeout("Starting network", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(verify_before_cat, *utf::depends_on("dedup_in_memory/teardown"))
