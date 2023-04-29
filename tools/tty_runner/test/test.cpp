@@ -32,11 +32,11 @@ struct FixtureDedupInMemory
 struct FixtureDedupedAfterUmount
 {
     const tty::arg::Arg args;
-    const jthread run;
+    const tty::TtyRunner run;
 
     FixtureDedupedAfterUmount()
         : args("../../fs/nilfs-dedup", "commands/remount.sh", "tty_output_remount.log")
-        , run(tty::run, args)
+        , run(args)
     {
     }
 };

@@ -46,6 +46,6 @@ int main(int argc, char* argv[])
 
     cout << args << '\n';
 
-    tty::run(args);
+    TtyRunner r(args);
     return 0;
 }

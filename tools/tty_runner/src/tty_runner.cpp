@@ -37,17 +37,12 @@ using namespace tty::arg;
 using namespace tty;
 using namespace std::literals;
 
-string tty_output;
-string tty_name = "";
-mutex tty_name_mutex;
-shared_ptr<FileDescriptor> pty_slave_fd;
-
-atomic<bool> quit(false);
-atomic<bool> tty_launched(false);
+string TtyRunner::tty_output {};
+atomic<bool> TtyRunner::quit(false);
 
 void sigint_handler(int)
 {
-    quit.store(true);
+    TtyRunner::quit.store(true);
 }
 
 void setup_signal_handler()
@@ -59,7 +54,7 @@ void setup_signal_handler()
     sigaction(SIGINT, &sa, NULL);
 }
 
-void run_qemu_executor(const vector<string>& commands)
+void TtyRunner::run_qemu_executor()
 {
     cout << "Launched " << __func__ << " thread\n";
 
@@ -80,12 +75,12 @@ void run_qemu_executor(const vector<string>& commands)
     TtyExecutor tty(tty_name);
     cout << "\nAttached to tty: " << tty_name << '\n';
 
-    if (commands.empty())
+    if (args.commands.empty())
     {
         throw runtime_error("Commands empty!");
     }
 
-    for (const auto& cmd : commands)
+    for (const auto& cmd : args.commands)
     {
         tty.execute(cmd + "\n");
     }
@@ -98,7 +93,7 @@ void run_qemu_executor(const vector<string>& commands)
     quit.notify_all();
 }
 
-void run_qemu(const string& makefile_path)
+void TtyRunner::run_qemu()
 {
     cout << "Launched " << __func__ << " thread\n";
 
@@ -106,7 +101,7 @@ void run_qemu(const string& makefile_path)
 
     cout << "Launching qemu instance\n";
 
-    const string command = "SERIAL_TTY=" + tty_name + " make -C " + makefile_path + " vm-tty ";
+    const string command = "SERIAL_TTY=" + tty_name + " make -C " + args.path_to_makefile + " vm-tty ";
     system(command.c_str());
 
     cout << "Stopped qemu instance\n";
@@ -115,11 +110,11 @@ void run_qemu(const string& makefile_path)
     quit.notify_all();
 }
 
-void run_pty(bool show_output)
+void TtyRunner::run_pty()
 {
     cout << "Launched " << __func__ << " thread\n";
 
-    PtyLauncher pty(tty_name, show_output);
+    PtyLauncher pty(tty_name, args.show_output);
     tty_launched.store(true);
     tty_launched.notify_all();
     pty_slave_fd = pty.slave;
@@ -131,7 +126,7 @@ void run_pty(bool show_output)
     quit.notify_all();
 }
 
-void run_pty_killer()
+void TtyRunner::run_pty_killer()
 {
     tty_launched.wait(false);
     quit.wait(false);
@@ -145,20 +140,23 @@ void run_pty_killer()
 
 bool tty::output_contains(const string_view& query)
 {
-    return string_contains(tty_output, query);
+    return string_contains(TtyRunner::tty_output, query);
 }
 
 void tty::run(const tty::arg::Arg& args)
 {
+}
+
+tty::TtyRunner::TtyRunner(const arg::Arg& args)
+    : args(args)
+    , pty([this]
+          { run_pty(); })
+    , killer([this]
+          { run_pty_killer(); })
+    , qemu([this]
+          { run_qemu(); })
+    , executor([this]
+          { run_qemu_executor(); })
+{
     setup_signal_handler();
-
-    {
-        jthread pty(run_pty, args.show_output);
-        jthread killer(run_pty_killer);
-        jthread qemu(run_qemu, args.path_to_makefile);
-        jthread executor(run_qemu_executor, args.commands);
-    }
-
-    ofstream output(args.output_file);
-    output << tty_output;
 }
