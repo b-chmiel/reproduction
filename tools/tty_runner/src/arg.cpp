@@ -6,10 +6,17 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <cstdlib>
+#include <fcntl.h>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <vector>
+
+#ifdef HAVE_LIBEXPLAIN
+#include <libexplain/open.h>
+#endif
 
 using namespace std;
 using namespace tty::arg;
@@ -29,6 +36,28 @@ const map<Option, const char*> option_names = {
     { Option::COMMAND_LIST, "command-list" },
     { Option::OUTPUT_FILE, "output-file" }
 };
+
+vector<string> parse_commands(const string& filename)
+{
+    ifstream file(filename);
+    if (not file.is_open())
+    {
+#ifdef HAVE_LIBEXPLAIN
+        throw runtime_error("Could not open file: "s + explain_open(filename.c_str(), O_RDONLY, _S_in));
+#else
+        throw runtime_error("Could not open file");
+#endif
+    }
+
+    string line {};
+    vector<string> result {};
+    while (getline(file, line))
+    {
+        result.emplace_back(line);
+    }
+
+    return result;
+}
 
 Arg::Arg(int argc, char* argv[])
 {
@@ -76,6 +105,7 @@ Arg::Arg(int argc, char* argv[])
     if (vm.count(option_names.at(Option::COMMAND_LIST)))
     {
         this->command_list_file = vm[option_names.at(Option::COMMAND_LIST)].as<string>();
+        this->commands = parse_commands(this->command_list_file);
     }
 
     if (vm.count(option_names.at(Option::OUTPUT_FILE)))

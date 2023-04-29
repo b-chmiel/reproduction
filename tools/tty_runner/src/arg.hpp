@@ -1,7 +1,9 @@
 #pragma once
 
 #include <ostream>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace tty::arg
 {
@@ -14,6 +16,8 @@ enum class CliMode
 class Arg
 {
 public:
+    std::vector<std::string> commands {};
+
     CliMode mode = CliMode::NORMAL;
     std::string path_to_makefile = "";
     std::string command_list_file = "";
