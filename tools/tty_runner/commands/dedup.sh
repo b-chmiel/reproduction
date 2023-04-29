@@ -38,6 +38,9 @@ sh mount_nilfs.sh
 gen_file --size=900 --type=0 --seed=420 $MNT_DIR/f1
 gen_file --size=900 --type=0 --seed=420 $MNT_DIR/f2
 
+sha512sum $MNT_DIR/f1 > f1.sha512sum
+sha512sum $MNT_DIR/f2 > f2.sha512sum
+
 validate_fs
 
 dedup -v /dev/loop0
