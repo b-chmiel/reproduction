@@ -43,9 +43,11 @@ validate_fs
 
 dedup -v /dev/loop0
 
-# validate_fs
+validate_fs
 
 cat $MNT_DIR/f1
 cat $MNT_DIR/f2
 
 validate_fs
+
+umount /mnt/nilfs2

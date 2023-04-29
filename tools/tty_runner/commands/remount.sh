@@ -37,9 +37,11 @@ losetup -P $LOOP_INTERFACE $FS_BIN_FILE
 mkdir -p $MNT_DIR
 mount -t nilfs2 $LOOP_INTERFACE $MNT_DIR
 
-# validate_fs
+validate_fs
 
 cat $MNT_DIR/f1
 cat $MNT_DIR/f2
 
 validate_fs
+
+umount /mnt/nilfs2
