@@ -148,11 +148,6 @@ bool tty::output_contains(const string_view& query)
     return string_contains(tty_output, query);
 }
 
-bool tty::is_running()
-{
-    return !quit.load();
-}
-
 string tty::run(const tty::arg::Arg& args)
 {
     setup_signal_handler();

@@ -18,12 +18,7 @@ $(BUILD_DIR)/$(BUILD_SYSTEM_FILENAME): CMakeLists.txt src/CMakeLists.txt test/CM
 
 test: FORCE
 	./${BUILD_DIR}/test/tests \
-		--success \
-		--abort \
-		--durations yes \
-		--verbosity high \
-		--order decl \
-		--reporter console
+		--log_level=all
 
 clean:
 	- rm -rf $(BUILD_DIR)
