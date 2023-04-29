@@ -37,7 +37,7 @@ const map<Option, const char*> option_names = {
     { Option::OUTPUT_FILE, "output-file" }
 };
 
-vector<string> parse_commands(const string& filename)
+static vector<string> parse_commands(const string& filename)
 {
     ifstream file(filename);
     if (not file.is_open())
@@ -112,4 +112,12 @@ Arg::Arg(int argc, char* argv[])
     {
         this->output_file = vm[option_names.at(Option::OUTPUT_FILE)].as<string>();
     }
+}
+
+Arg::Arg(const string& path_to_makefile, const string& command_list_file, const string& output_file)
+    : path_to_makefile(path_to_makefile)
+    , command_list_file(command_list_file)
+    , output_file(output_file)
+    , commands(parse_commands(command_list_file))
+{
 }

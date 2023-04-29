@@ -24,6 +24,8 @@ public:
     std::string output_file = "tty_output.txt";
 
     explicit Arg(int argc, char* argv[]);
+    explicit Arg(const std::string& path_to_makefile, const std::string& command_list_file, const std::string& output_file);
+
     friend std::ostream& operator<<(std::ostream& os, const Arg& arg)
     {
         return os << "Args:\n"

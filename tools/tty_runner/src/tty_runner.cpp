@@ -80,6 +80,11 @@ void run_qemu_executor(const vector<string>& commands)
     TtyExecutor tty(tty_name);
     cout << "\nAttached to tty: " << tty_name << '\n';
 
+    if (commands.empty())
+    {
+        throw runtime_error("Commands empty!");
+    }
+
     for (const auto& cmd : commands)
     {
         tty.execute(cmd + "\n");
@@ -136,6 +141,16 @@ void run_pty_killer()
     // so manual deletion is required.
 
     close(pty_slave_fd->fd);
+}
+
+bool tty::output_contains(const string_view& query)
+{
+    return string_contains(tty_output, query);
+}
+
+bool tty::is_running()
+{
+    return !quit.load();
 }
 
 string tty::run(const tty::arg::Arg& args)
