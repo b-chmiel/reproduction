@@ -46,10 +46,6 @@ int main(int argc, char* argv[])
 
     cout << args << '\n';
 
-    const auto tty_output = tty::run(args);
-
-    ofstream output(args.output_file);
-    output << tty_output;
-
+    tty::run(args);
     return 0;
 }

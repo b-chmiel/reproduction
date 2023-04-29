@@ -119,5 +119,6 @@ Arg::Arg(const string& path_to_makefile, const string& command_list_file, const 
     , command_list_file(command_list_file)
     , output_file(output_file)
     , commands(parse_commands(command_list_file))
+    , show_output(false)
 {
 }

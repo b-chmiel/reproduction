@@ -15,7 +15,8 @@
 using namespace std;
 using namespace tty;
 
-PtyLauncher::PtyLauncher(string& tty_name)
+PtyLauncher::PtyLauncher(string& tty_name, bool show_output)
+    : show_output(show_output)
 {
     int master_fd, slave_fd;
 
@@ -42,7 +43,11 @@ void PtyLauncher::read_output(const atomic<bool>& quit, string& output)
         name[r] = '\0';
         const string_view line(&name[0]);
         output += line;
-        printf("%s", line.data());
+
+        if (show_output)
+        {
+            printf("%s", line.data());
+        }
     }
 }
 

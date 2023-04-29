@@ -18,7 +18,8 @@ $(BUILD_DIR)/$(BUILD_SYSTEM_FILENAME): CMakeLists.txt src/CMakeLists.txt test/CM
 
 test: FORCE
 	./${BUILD_DIR}/test/tests \
-		--log_level=all
+		--log_level=all \
+		--report_level=detailed
 
 clean:
 	- rm -rf $(BUILD_DIR)

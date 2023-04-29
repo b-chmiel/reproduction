@@ -115,11 +115,11 @@ void run_qemu(const string& makefile_path)
     quit.notify_all();
 }
 
-void run_pty()
+void run_pty(bool show_output)
 {
     cout << "Launched " << __func__ << " thread\n";
 
-    PtyLauncher pty(tty_name);
+    PtyLauncher pty(tty_name, show_output);
     tty_launched.store(true);
     tty_launched.notify_all();
     pty_slave_fd = pty.slave;
@@ -148,14 +148,17 @@ bool tty::output_contains(const string_view& query)
     return string_contains(tty_output, query);
 }
 
-string tty::run(const tty::arg::Arg& args)
+void tty::run(const tty::arg::Arg& args)
 {
     setup_signal_handler();
 
-    jthread pty(run_pty);
-    jthread killer(run_pty_killer);
-    jthread qemu(run_qemu, args.path_to_makefile);
-    jthread executor(run_qemu_executor, args.commands);
+    {
+        jthread pty(run_pty, args.show_output);
+        jthread killer(run_pty_killer);
+        jthread qemu(run_qemu, args.path_to_makefile);
+        jthread executor(run_qemu_executor, args.commands);
+    }
 
-    return tty_output;
+    ofstream output(args.output_file);
+    output << tty_output;
 }
