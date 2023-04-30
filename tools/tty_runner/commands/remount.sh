@@ -15,6 +15,7 @@ export MNT_DIR=/mnt/nilfs2
 export FS_FILE_SIZE=500M
 export FS_BIN_FILE=/nilfs2.bin
 export LOOP_INTERFACE=/dev/loop0
+VALIDATION_ID=0
 
 # since 'du' does not have '-b' argument
 # in-house solution is needed
@@ -25,12 +26,13 @@ ls -al $directory | awk 'BEGIN {tot=0;} {tot = tot + $5;} END {printf ("%d\n",to
 }
 
 function validate_fs {
-echo "$MNT_DIR SIZE"
+echo "$MNT_DIR SIZE $VALIDATION_ID"
 dir_size $MNT_DIR
 
-echo "CHECKSUM VALIDATION"
-sha512sum -c f1.sha512sum
-sha512sum -c f2.sha512sum
+validate_f1=$(sha512sum -c f1.sha512sum)
+validate_f2=$(sha512sum -c f2.sha512sum)
+echo "CHECKSUM VALIDATION $VALIDATION_ID $validate_f1 $validate_f2"
+VALIDATION_ID=$(($VALIDATION_ID + 1))
 }
 
 losetup -P $LOOP_INTERFACE $FS_BIN_FILE
