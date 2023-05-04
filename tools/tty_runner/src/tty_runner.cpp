@@ -22,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <pty.h>
+#include <regex>
 #include <signal.h>
 #include <stdexcept>
 #include <string>
@@ -146,6 +147,22 @@ void run_pty_killer()
 bool tty::output_contains(const string_view& query)
 {
     return string_contains(tty_output, query);
+}
+
+vector<string> tty::output_matches(const string& regex_pattern)
+{
+    regex r("BEGIN");
+    smatch sm;
+    vector<string> result {};
+    string copy = tty_output;
+
+    while (regex_search(copy, sm, r))
+    {
+        result.emplace_back(sm.str());
+        copy = sm.suffix();
+    }
+
+    return result;
 }
 
 void tty::run(const tty::arg::Arg& args)

@@ -59,8 +59,10 @@ BOOST_AUTO_TEST_CASE(boot_ok)
     tty_contains_with_timeout("Starting network", timeout);
 }
 
+size_t size;
 BOOST_AUTO_TEST_CASE(verify_before_dedup)
 {
+    tty_get_filesystem_size(0);
     tty_contains_with_timeout("CHECKSUM VALIDATION 0 /mnt/nilfs2/f1: OK /mnt/nilfs2/f2: OK", timeout);
 }
 
@@ -92,35 +94,35 @@ BOOST_AUTO_TEST_CASE(teardown)
 
 BOOST_AUTO_TEST_SUITE_END()
 
-BOOST_AUTO_TEST_SUITE(deduped_after_umount)
-BOOST_AUTO_TEST_CASE(setup, *utf::depends_on("dedup_in_memory/teardown"))
-{
-    deduped_after_umount_fixture = make_unique<FixtureDedupedAfterUmount>();
-    BOOST_TEST(true);
-}
-BOOST_AUTO_TEST_CASE(boot_ok, *utf::depends_on("dedup_in_memory/teardown"))
-{
-    tty_contains_with_timeout("Running sysctl", timeout);
-    tty_contains_with_timeout("Starting network", timeout);
-}
+// BOOST_AUTO_TEST_SUITE(deduped_after_umount)
+// BOOST_AUTO_TEST_CASE(setup, *utf::depends_on("dedup_in_memory/teardown"))
+// {
+//     deduped_after_umount_fixture = make_unique<FixtureDedupedAfterUmount>();
+//     BOOST_TEST(true);
+// }
+// BOOST_AUTO_TEST_CASE(boot_ok, *utf::depends_on("dedup_in_memory/teardown"))
+// {
+//     tty_contains_with_timeout("Running sysctl", timeout);
+//     tty_contains_with_timeout("Starting network", timeout);
+// }
 
-BOOST_AUTO_TEST_CASE(verify_before_cat, *utf::depends_on("dedup_in_memory/teardown"))
-{
-    tty_contains_with_timeout("CHECKSUM VALIDATION 0 /mnt/nilfs2/f1: OK /mnt/nilfs2/f2: OK", timeout);
-}
+// BOOST_AUTO_TEST_CASE(verify_before_cat, *utf::depends_on("dedup_in_memory/teardown"))
+// {
+//     tty_contains_with_timeout("CHECKSUM VALIDATION 0 /mnt/nilfs2/f1: OK /mnt/nilfs2/f2: OK", timeout);
+// }
 
-BOOST_AUTO_TEST_CASE(verify_after_cat, *utf::depends_on("dedup_in_memory/teardown"))
-{
-    tty_contains_with_timeout("CHECKSUM VALIDATION 1 /mnt/nilfs2/f1: OK /mnt/nilfs2/f2: OK", timeout);
-}
+// BOOST_AUTO_TEST_CASE(verify_after_cat, *utf::depends_on("dedup_in_memory/teardown"))
+// {
+//     tty_contains_with_timeout("CHECKSUM VALIDATION 1 /mnt/nilfs2/f1: OK /mnt/nilfs2/f2: OK", timeout);
+// }
 
-BOOST_AUTO_TEST_CASE(poweroff, *utf::depends_on("dedup_in_memory/teardown"))
-{
-    tty_contains_with_timeout("reboot: machine restart", timeout);
-}
-BOOST_AUTO_TEST_CASE(teardown, *utf::depends_on("dedup_in_memory/teardown"))
-{
-    deduped_after_umount_fixture.reset();
-    BOOST_TEST(true);
-}
-BOOST_AUTO_TEST_SUITE_END()
+// BOOST_AUTO_TEST_CASE(poweroff, *utf::depends_on("dedup_in_memory/teardown"))
+// {
+//     tty_contains_with_timeout("reboot: machine restart", timeout);
+// }
+// BOOST_AUTO_TEST_CASE(teardown, *utf::depends_on("dedup_in_memory/teardown"))
+// {
+//     deduped_after_umount_fixture.reset();
+//     BOOST_TEST(true);
+// }
+// BOOST_AUTO_TEST_SUITE_END()

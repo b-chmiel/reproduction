@@ -27,4 +27,17 @@ inline void tty_contains_with_timeout(const std::string& query, const std::chron
     BOOST_TEST(false);
 }
 
+inline long long tty_get_filesystem_size(int validation_id)
+{
+    // 'BEGIN_SIZE .* SIZE \d \d+ END_SIZE'
+    const auto size_measurements = tty::output_matches("BEGIN_SIZE");
+    std::cout << "MEASUREMENTS:" << std::endl;
+    for (auto m : size_measurements)
+    {
+        std::cout << m << std::endl;
+    }
+
+    return 0;
+}
+
 }
