@@ -17,17 +17,14 @@ export FS_BIN_FILE=/nilfs2.bin
 export LOOP_INTERFACE=/dev/loop0
 VALIDATION_ID=0
 
-# since 'du' does not have '-b' argument
-# in-house solution is needed
-# https://superuser.com/a/1158437/1780577
 function dir_size {
 directory=$1
-ls -al $directory | awk 'BEGIN {tot=0;} {tot = tot + $5;} END {printf ("%d\n",tot);}'
+df | grep $directory
 }
 
 function validate_fs {
-echo "$MNT_DIR SIZE $VALIDATION_ID"
-dir_size $MNT_DIR
+size=$(dir_size $MNT_DIR)
+echo "BEGIN_SIZE $MNT_DIR SIZE $VALIDATION_ID $size END_SIZE"
 
 validate_f1=$(sha512sum -c f1.sha512sum)
 validate_f2=$(sha512sum -c f2.sha512sum)
