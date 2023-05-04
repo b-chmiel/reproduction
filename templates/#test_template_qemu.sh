@@ -1,20 +1,36 @@
 #!/bin/bash
-
-# This file will be copied to each folder with file system
-# and executed in Vagrantbox
+# This file will be copied to qemu and executed
 
 set -euo pipefail
 
-if [[ $# -eq 0 ]] ; then
-    echo 'Test template need fs_name argument'
-    exit 1
-fi
+DESTINATION=/mnt/nilfs2
+SEED=420
+FILE_SIZE=1G
+BONNIE_ARGS="-d ${DESTINATION} -s ${FILE_SIZE} -n 15 -b -u root -q -z ${SEED}"
+FILESYSTEM_FILE=/nilfs2.bin
+MOUNT_DIRECTORY=/mnt/work
+OUTPUT_DIRECTORY="${MOUNT_DIRECTORY}/out"
+FS_NAME=nilfs-dedup
 
-FS_NAME=$1
+prepare_mount_point() {
+	echo "Mounting local folder in ${MOUNT_DIRECTORY}"
+	mkdir -pv $MOUNT_DIRECTORY
+	mount -t 9p -o trans=virtio,version=9p2000.L host0 $MOUNT_DIRECTORY
+}
 
-source test_template_env.sh
+mount_filesystem() {
+	sh mount_nilfs.sh
+}
+
+setup() {
+    mkdir -pv $OUTPUT_DIRECTORY
+	prepare_mount_point
+	mount_filesystem
+}
 
 bonnie_test() {
+	echo "Preparing bonnie++ benchmark..."
+
     DIR=$OUTPUT_DIRECTORY/bonnie
     mkdir -pv $DIR
 
@@ -26,11 +42,18 @@ bonnie_test() {
 }
 
 fio_test() {
+	echo "Preparing fio benchmark..."
+
     DIR=$OUTPUT_DIRECTORY/fio
     mkdir -pv $DIR
 
-    mv fio-job.cfg $DESTINATION/
-    pushd $DESTINATION
+	echo $MOUNT_DIRECTORY
+	echo $DESTINATION
+
+    cp -v $MOUNT_DIRECTORY/fio-job.cfg $DESTINATION/fio-job.cfg
+	
+	echo "Running fio benchmark..."
+    cd $DESTINATION
         df >> $DIR/df_before_fio_file_append_read_test.txt
         fio fio-job.cfg --section file_append_read_test
         df >> $DIR/df_after_fio_file_append_read_test.txt
@@ -48,19 +71,20 @@ fio_test() {
         df >> $DIR/df_after_fio_random_write_test.txt
 
         mv *.log $DIR/
-    popd
+    cd ..
 }
 
 delete_test() {
     TRIALS=2
     TEST_FILE=delete_test_file
     DIR=$OUTPUT_DIRECTORY/delete
+	echo "Preparing deletion test..."
     mkdir -pv $DIR
 
     echo "Running deletion test for: ${TRIALS} trials"
 
     df >> $DIR/df_before_delete_test.txt
-    pushd $DESTINATION
+    cd $DESTINATION
 	counter=1
 	while [ $counter -le ${TRIALS} ]
         do
@@ -68,18 +92,24 @@ delete_test() {
 	
             gen_file --size=1G --seed=$SEED $TEST_FILE
             rm -fv $TEST_FILE
-	    ((counter++))
+	    counter=$((counter+1))
         done
-    popd
+    cd ..
     df >> $DIR/df_after_delete_test.txt
 }
 
-main() {
-    mkdir -pv $OUTPUT_DIRECTORY
+teardown() {
+	umount $DESTINATION
+}
 
-    # bonnie_test
-    fio_test
+main() {
+	setup
+
+    bonnie_test
+    # fio_test
     delete_test
+
+	teardown
 }
 
 main

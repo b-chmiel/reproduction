@@ -10,3 +10,12 @@
 [submodule "tools/gen_file"]
 	path = tools/gen_file
 	url = git@github.com:bachm44/gen_file.git
+[submodule "tools/fio"]
+	path = tools/fio
+	url = https://github.com/axboe/fio
+[submodule "tools/bonnie-plus-plus"]
+	path = tools/bonnie-plus-plus
+	url = git@github.com:bachm44/bonnie-plus-plus.git
+[submodule "tools/musl"]
+	path = tools/musl
+	url = git://git.musl-libc.org/musl

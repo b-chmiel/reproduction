@@ -50,7 +50,13 @@ main() {
 		--halt-on-error now,fail=1 \
 		build_box {1} ::: ${file_systems[@]}
 	
-	log "Finished successfully"
+	log "Finished building boxes successfully"
+
+	log "Building nilfs-dedup buildroot and linux"
+	make -C fs/nilfs-dedup buildroot
+	make -C fs/nilfs-dedup linux
+
+	log "Finished building nilfs-dedup"
 }
 
 main 
