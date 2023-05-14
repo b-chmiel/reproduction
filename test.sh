@@ -40,14 +40,30 @@ benchmark_dedup() {
 	fs_name="nilfs-dedup"
 	log "Running benchmark for ${fs_name}"
 
-	cp -v templates/\#test_template_qemu.sh fs/$fs_name/test_template.sh | adddate
+	cp -v templates/\#test_template_qemu1.sh fs/$fs_name/test_template_1.sh | adddate
+	cp -v templates/\#test_template_qemu2.sh fs/$fs_name/test_template_2.sh | adddate
+	cp -v templates/\#test_template_qemu3.sh fs/$fs_name/test_template_3.sh | adddate
 	cp -v templates/\#fio-job.cfg fs/$fs_name/fio-job.cfg | adddate
 
 	pushd tools/tty_runner
 		./build/src/tty \
 			--path-to-makefile ../../fs/$fs_name \
-			--command-list ../../fs/$fs_name/test_template.sh \
-			--output-file ../../logs/test/qemu.log
+			--command-list ../../fs/$fs_name/test_template_1.sh \
+			--output-file ../../logs/test/qemu1.log
+	popd
+
+	pushd tools/tty_runner
+		./build/src/tty \
+			--path-to-makefile ../../fs/$fs_name \
+			--command-list ../../fs/$fs_name/test_template_2.sh \
+			--output-file ../../logs/test/qemu2.log
+	popd
+
+	pushd tools/tty_runner
+		./build/src/tty \
+			--path-to-makefile ../../fs/$fs_name \
+			--command-list ../../fs/$fs_name/test_template_3.sh \
+			--output-file ../../logs/test/qemu3.log
 	popd
 }
 

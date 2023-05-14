@@ -11,6 +11,7 @@ FILESYSTEM_FILE=/nilfs2.bin
 MOUNT_DIRECTORY=/mnt/work
 OUTPUT_DIRECTORY="${MOUNT_DIRECTORY}/out"
 FS_NAME=nilfs-dedup
+LOOP_INTERFACE=/dev/loop0
 
 prepare_mount_point() {
 	echo "Mounting local folder in ${MOUNT_DIRECTORY}"
@@ -18,14 +19,16 @@ prepare_mount_point() {
 	mount -t 9p -o trans=virtio,version=9p2000.L host0 $MOUNT_DIRECTORY
 }
 
-mount_filesystem() {
-	sh mount_nilfs.sh
+remount_filesystem() {
+    losetup -P $LOOP_INTERFACE $FILESYSTEM_FILE
+    mkdir -p $DESTINATION
+    mount -t nilfs2 $LOOP_INTERFACE $DESTINATION
 }
 
 setup() {
     mkdir -pv $OUTPUT_DIRECTORY
 	prepare_mount_point
-	mount_filesystem
+	remount_filesystem
 }
 
 bonnie_test() {
@@ -107,7 +110,7 @@ main() {
 
     bonnie_test
     # fio_test
-    delete_test
+    # delete_test
 
 	teardown
 }

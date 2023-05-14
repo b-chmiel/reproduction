@@ -3,20 +3,15 @@
 # TEST
 
 # PREREQUISITES
-# - dedup.sh
 
 # DESCRIPTION
-# on previously deduped fs validate if files are stored correctly and
-# check fs disk usage
+# 1. perform deduplication on two small files
+# 2. check their contents using sha512sum and
+# 3. read disk usage before, after deduplication and after first read
 
 # TEST_START
 
-# set logging level
-# echo "1" > /proc/sys/kernel/printk
-
 export MNT_DIR=/mnt/nilfs2
-export FS_BIN_FILE=/nilfs2.bin
-export LOOP_INTERFACE=/dev/loop0
 VALIDATION_ID=0
 
 function dir_size {
@@ -36,13 +31,16 @@ echo "CHECKSUM VALIDATION $VALIDATION_ID $validate_f1 $validate_f2"
 VALIDATION_ID=$(($VALIDATION_ID + 1))
 }
 
-losetup -P $LOOP_INTERFACE $FS_BIN_FILE
-mkdir -p $MNT_DIR
-mount -t nilfs2 $LOOP_INTERFACE $MNT_DIR
+
+sh mount_nilfs.sh
 
 validate_fs
 
-dedup -v /dev/loop0
+gen_file --size=1015808 --type=0 --seed=420 $MNT_DIR/f1
+gen_file --size=1015808 --type=0 --seed=420 $MNT_DIR/f2
+
+sha512sum $MNT_DIR/f1 > f1.sha512sum
+sha512sum $MNT_DIR/f2 > f2.sha512sum
 
 validate_fs
 
