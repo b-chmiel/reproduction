@@ -10,7 +10,7 @@ if (${HAVE_LIBEXPLAIN})
 	add_definitions(-DHAVE_LIBEXPLAIN)
 endif()
 
-find_package(Boost 1.81 COMPONENTS program_options unit_test_framework REQUIRED)
+find_package(Boost 1.81 COMPONENTS program_options unit_test_framework filesystem REQUIRED)
 
 add_subdirectory(src)
 add_subdirectory(test)

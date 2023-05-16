@@ -106,9 +106,10 @@ void run_qemu(const string& makefile_path)
 
     cout << "Launching qemu instance\n";
 
-    const string command = "SERIAL_TTY=" + tty_name + " make -C " + makefile_path + " vm-tty ";
-    system(command.c_str());
+    const auto command = "SERIAL_TTY=" + tty_name + " make -C " + makefile_path + " vm-tty ";
+    string output = execute_command(command);
 
+    cout << output << '\n';
     cout << "Stopped qemu instance\n";
 
     quit.store(true);
