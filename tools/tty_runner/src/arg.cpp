@@ -27,14 +27,16 @@ enum class Option
     HELP,
     PATH_TO_MAKEFILE,
     COMMAND_LIST,
-    OUTPUT_FILE
+    OUTPUT_FILE,
+    SHOW_OUTPUT
 };
 
 const map<Option, const char*> option_names = {
     { Option::HELP, "help" },
     { Option::PATH_TO_MAKEFILE, "path-to-makefile" },
     { Option::COMMAND_LIST, "command-list" },
-    { Option::OUTPUT_FILE, "output-file" }
+    { Option::OUTPUT_FILE, "output-file" },
+    { Option::SHOW_OUTPUT, "show-output" }
 };
 
 static vector<string> parse_commands(const string& filename)
@@ -73,7 +75,9 @@ Arg::Arg(int argc, char* argv[])
 	(option_names.at(Option::OUTPUT_FILE), po::value<string>()->default_value(this->output_file),
       "Filename of file with results from commands execution (without "
       "kernel "
-      "startup messages)");
+      "startup messages)")
+    (option_names.at(Option::SHOW_OUTPUT), po::value<bool>()->default_value(this->show_output),
+    "Show output in console");
     // clang-format on
 
     po::variables_map vm;
@@ -111,6 +115,11 @@ Arg::Arg(int argc, char* argv[])
     if (vm.count(option_names.at(Option::OUTPUT_FILE)))
     {
         this->output_file = vm[option_names.at(Option::OUTPUT_FILE)].as<string>();
+    }
+
+    if (vm.count(option_names.at(Option::SHOW_OUTPUT)))
+    {
+        this->show_output = vm[option_names.at(Option::SHOW_OUTPUT)].as<bool>();
     }
 }
 
