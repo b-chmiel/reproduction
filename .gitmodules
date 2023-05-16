@@ -19,3 +19,6 @@
 [submodule "tools/musl"]
 	path = tools/musl
 	url = git://git.musl-libc.org/musl
+[submodule "tools/bfcmp"]
+	path = tools/bfcmp
+	url = https://gitlab.com/mezantrop/bfcmp
