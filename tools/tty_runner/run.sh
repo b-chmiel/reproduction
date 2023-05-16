@@ -12,7 +12,7 @@ set -euo pipefail
 	--path-to-makefile ../../fs/nilfs-dedup \
 	--command-list commands/dedup.sh \
 	--output-file tty_output_dedup.log \
-	--show-output 1
+	--show-output 0
 
 ./build/src/tty \
 	--path-to-makefile ../../fs/nilfs-dedup \

@@ -12,7 +12,7 @@
 # TEST_START
 
 # set logging level
-echo "1" > /proc/sys/kernel/printk
+# echo "1" > /proc/sys/kernel/printk
 
 export MNT_DIR=/mnt/nilfs2
 export FS_BIN_FILE=/nilfs2.bin
