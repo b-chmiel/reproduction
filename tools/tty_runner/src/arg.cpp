@@ -26,6 +26,7 @@ enum class Option
 {
     HELP,
     PATH_TO_MAKEFILE,
+    COMMAND_LIST_SETUP,
     COMMAND_LIST,
     OUTPUT_FILE,
     SHOW_OUTPUT
@@ -34,6 +35,7 @@ enum class Option
 const map<Option, const char*> option_names = {
     { Option::HELP, "help" },
     { Option::PATH_TO_MAKEFILE, "path-to-makefile" },
+    { Option::COMMAND_LIST_SETUP, "command-list-setup" },
     { Option::COMMAND_LIST, "command-list" },
     { Option::OUTPUT_FILE, "output-file" },
     { Option::SHOW_OUTPUT, "show-output" }
@@ -70,8 +72,10 @@ Arg::Arg(int argc, char* argv[])
 	(option_names.at(Option::HELP), "produce help message")
 	(option_names.at(Option::PATH_TO_MAKEFILE), po::value<string>()->required(),
       "Path to Makefile of automated vfs project with custom kernel")
+	(option_names.at(Option::COMMAND_LIST_SETUP), po::value<string>()->required(),
+      "Path to file with setup commands which will be launched before command-list")
 	(option_names.at(Option::COMMAND_LIST), po::value<string>()->required(),
-      "Path to file with commands listed line by line")
+      "Path to file with commands that will be executed line-by-line using tty")
 	(option_names.at(Option::OUTPUT_FILE), po::value<string>()->default_value(this->output_file),
       "Filename of file with results from commands execution (without "
       "kernel "
@@ -106,10 +110,17 @@ Arg::Arg(int argc, char* argv[])
         this->path_to_makefile = vm[option_names.at(Option::PATH_TO_MAKEFILE)].as<string>();
     }
 
+    if (vm.count(option_names.at(Option::COMMAND_LIST_SETUP)))
+    {
+        this->command_list_setup_file = vm[option_names.at(Option::COMMAND_LIST_SETUP)].as<string>();
+        this->commands = parse_commands(this->command_list_setup_file);
+    }
+
     if (vm.count(option_names.at(Option::COMMAND_LIST)))
     {
         this->command_list_file = vm[option_names.at(Option::COMMAND_LIST)].as<string>();
-        this->commands = parse_commands(this->command_list_file);
+        const auto commands = parse_commands(this->command_list_file);
+        this->commands.insert(end(this->commands), begin(commands), end(commands));
     }
 
     if (vm.count(option_names.at(Option::OUTPUT_FILE)))

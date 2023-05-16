@@ -20,6 +20,7 @@ public:
 
     CliMode mode = CliMode::NORMAL;
     std::string path_to_makefile = "";
+    std::string command_list_setup_file = "";
     std::string command_list_file = "";
     std::string output_file = "tty_output.txt";
     bool show_output = true;
