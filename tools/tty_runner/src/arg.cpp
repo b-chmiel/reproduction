@@ -12,6 +12,7 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <syslog.h>
 #include <vector>
 
 #ifdef HAVE_LIBEXPLAIN
@@ -28,6 +29,7 @@ using std::cout;
 using std::getline;
 using std::ifstream;
 using std::map;
+using std::max;
 using std::runtime_error;
 using std::string;
 using std::vector;
@@ -39,7 +41,7 @@ enum class Option
     COMMAND_LIST_SETUP,
     COMMAND_LIST,
     OUTPUT_FILE,
-    SHOW_OUTPUT
+    VERBOSITY
 };
 
 const map<Option, const char*> option_names = {
@@ -48,7 +50,7 @@ const map<Option, const char*> option_names = {
     { Option::COMMAND_LIST_SETUP, "command-list-setup" },
     { Option::COMMAND_LIST, "command-list" },
     { Option::OUTPUT_FILE, "output-file" },
-    { Option::SHOW_OUTPUT, "show-output" }
+    { Option::VERBOSITY, "verbosity" }
 };
 
 static vector<string> parse_commands(const string& filename)
@@ -99,8 +101,8 @@ tty::arg::Arg::Arg(int argc, char* argv[])
       "Filename of file with results from commands execution (without "
       "kernel "
       "startup messages)")
-    (option_names.at(Option::SHOW_OUTPUT), po::value<bool>()->default_value(this->show_output),
-    "Show output in console");
+    (option_names.at(Option::VERBOSITY), po::value<bool>()->default_value(this->verbosity),
+    "Log level, see LOG_* in syslog.h");
     // clang-format on
 
     po::variables_map vm;
@@ -141,9 +143,9 @@ tty::arg::Arg::Arg(int argc, char* argv[])
         this->output_file = vm[option_names.at(Option::OUTPUT_FILE)].as<string>();
     }
 
-    if (vm.count(option_names.at(Option::SHOW_OUTPUT)))
+    if (vm.count(option_names.at(Option::VERBOSITY)))
     {
-        this->show_output = vm[option_names.at(Option::SHOW_OUTPUT)].as<bool>();
+        this->verbosity = max(vm[option_names.at(Option::VERBOSITY)].as<int>(), LOG_DEBUG);
     }
 }
 
@@ -153,6 +155,6 @@ tty::arg::Arg::Arg(const string& path_to_makefile, const string& command_list_se
     , command_list_file(command_list_file)
     , output_file(output_file)
     , commands(parse_commands(command_list_setup_file, command_list_file))
-    , show_output(false)
+    , verbosity(LOG_EMERG)
 {
 }

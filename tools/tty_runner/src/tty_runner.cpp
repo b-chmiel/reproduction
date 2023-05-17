@@ -31,8 +31,6 @@
 #include <unistd.h>
 #include <vector>
 
-using namespace tty::arg;
-using namespace tty;
 using namespace std::literals;
 
 using std::atomic;
@@ -44,8 +42,12 @@ using std::runtime_error;
 using std::shared_ptr;
 using std::string;
 using std::string_view;
-using std::vector;
 using std::this_thread::sleep_for;
+
+using tty::FileDescriptor;
+using tty::PtyLauncher;
+using tty::TtyExecutor;
+using tty::arg::Arg;
 
 string tty_output;
 string tty_name = "";
@@ -69,15 +71,16 @@ void setup_signal_handler()
     sigaction(SIGINT, &sa, NULL);
 }
 
-void run_qemu_executor(const vector<string>& commands)
+void run_qemu_executor(const Arg& arg)
 {
-    cout << "Launched " << __func__ << " thread\n";
+    if (arg.verbosity >= LOG_INFO)
+        cout << "Launched " << __func__ << " thread\n";
 
     tty_launched.wait(false);
 
     sleep_for(3s);
 
-    while (not quit.load() and not utils::string_contains(tty_output, "Starting network: OK"sv))
+    while (not quit.load() and not tty::utils::string_contains(tty_output, "Starting network: OK"sv))
     {
         sleep_for(1s);
     }
@@ -88,21 +91,24 @@ void run_qemu_executor(const vector<string>& commands)
     }
 
     TtyExecutor tty(tty_name);
-    cout << "\nAttached to tty: " << tty_name << '\n';
 
-    if (commands.empty())
+    if (arg.verbosity >= LOG_INFO)
+        cout << "\nAttached to tty: " << tty_name << '\n';
+
+    if (arg.commands.empty())
     {
         throw runtime_error("Commands empty!");
     }
 
-    for (const auto& cmd : commands)
+    for (const auto& cmd : arg.commands)
     {
         tty.execute(cmd + "\n");
     }
 
     tty.execute("reboot\n");
 
-    cout << "Stopped " << __func__ << " thread\n";
+    if (arg.verbosity >= LOG_INFO)
+        cout << "Stopped " << __func__ << " thread\n";
 
     quit.store(true);
     quit.notify_all();
@@ -110,45 +116,53 @@ void run_qemu_executor(const vector<string>& commands)
 
 void run_qemu(const Arg& arg)
 {
-    cout << "Launched " << __func__ << " thread\n";
+    if (arg.verbosity >= LOG_INFO)
+        cout << "Launched " << __func__ << " thread\n";
 
     tty_launched.wait(false);
 
-    cout << "Launching qemu instance\n";
+    if (arg.verbosity >= LOG_INFO)
+        cout << "Launching qemu instance\n";
 
     const string command = "SERIAL_TTY=" + tty_name + " make -C " + arg.path_to_makefile + " vm-tty ";
-    const auto output = utils::exec(command.c_str());
+    const auto output = tty::utils::exec(command.c_str());
 
-    if (arg.show_output)
+    if (arg.verbosity >= LOG_DEBUG)
         cout << output;
 
-    cout << "Stopped qemu instance\n";
+    if (arg.verbosity >= LOG_INFO)
+        cout << "Stopped qemu instance\n";
 
     quit.store(true);
     quit.notify_all();
 }
 
-void run_pty(bool show_output)
+void run_pty(const Arg& arg)
 {
-    cout << "Launched " << __func__ << " thread\n";
+    if (arg.verbosity >= LOG_INFO)
+        cout << "Launched " << __func__ << " thread\n";
 
-    PtyLauncher pty(tty_name, show_output);
+    PtyLauncher pty(tty_name, arg.verbosity);
     tty_launched.store(true);
     tty_launched.notify_all();
     pty_slave_fd = pty.slave;
 
     pty.read_output(quit, tty_output);
 
-    cout << "Stopped " << __func__ << " thread\n";
+    if (arg.verbosity >= LOG_INFO)
+        cout << "Stopped " << __func__ << " thread\n";
+
     quit.store(true);
     quit.notify_all();
 }
 
-void run_pty_killer()
+void run_pty_killer(const Arg& arg)
 {
     tty_launched.wait(false);
     quit.wait(false);
-    cout << "Starting pty kill\n";
+
+    if (arg.verbosity >= LOG_INFO)
+        cout << "Starting pty kill\n";
 
     // unfortunately slave_fd destructor is not called
     // so manual deletion is required.
@@ -158,10 +172,10 @@ void run_pty_killer()
 
 bool tty::output_contains(const string_view& query)
 {
-    return utils::string_contains(tty_output, query);
+    return tty::utils::string_contains(tty_output, query);
 }
 
-void tty::run(const tty::arg::Arg& args)
+void tty::run(const Arg& args)
 {
     tty_output = "";
     tty_name = "";
@@ -172,10 +186,10 @@ void tty::run(const tty::arg::Arg& args)
     setup_signal_handler();
 
     {
-        jthread pty(run_pty, args.show_output);
-        jthread killer(run_pty_killer);
+        jthread pty(run_pty, args);
+        jthread killer(run_pty_killer, args);
         jthread qemu(run_qemu, args);
-        jthread executor(run_qemu_executor, args.commands);
+        jthread executor(run_qemu_executor, args);
     }
 
     ofstream output(args.output_file);

@@ -11,16 +11,17 @@
 #endif
 
 using namespace tty;
-using namespace std;
+using std::cout;
+using std::string;
 
 TtyExecutor::TtyExecutor(const string& tty_name)
     : name(tty_name)
 {
-    fd = open(this->name.data(), O_RDWR);
+    fd = ::open(this->name.data(), O_RDWR);
 
     if (fd < 0) [[unlikely]]
     {
-        cout << "Cannot open file: " << strerror(errno) << '\n';
+        cout << "Cannot open file: " << ::strerror(errno) << '\n';
     }
 }
 
@@ -28,13 +29,13 @@ void TtyExecutor::execute(const string& command)
 {
     for (char ch : command)
     {
-        const int result = ioctl(fd, TIOCSTI, &ch);
+        const int result = ::ioctl(fd, TIOCSTI, &ch);
 
         if (result < 0) [[unlikely]]
         {
 #ifdef HAVE_LIBEXPLAIN
             cout << "Cannot execute command: "
-                 << explain_errno_ioctl(errno, fd, TIOCSTI, &ch) << '\n';
+                 << ::explain_errno_ioctl(errno, fd, TIOCSTI, &ch) << '\n';
 #else
             cout << "Cannot execute command: " << strerror(errno) << '\n';
 #endif
@@ -42,4 +43,4 @@ void TtyExecutor::execute(const string& command)
     }
 }
 
-TtyExecutor::~TtyExecutor() { close(fd); }
+TtyExecutor::~TtyExecutor() { ::close(fd); }

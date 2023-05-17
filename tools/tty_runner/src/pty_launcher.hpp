@@ -11,7 +11,7 @@ namespace tty
 class PtyLauncher
 {
 public:
-    PtyLauncher(std::string& tty_name, bool show_output);
+    explicit PtyLauncher(std::string& tty_name, uint verbosity);
     PtyLauncher(const PtyLauncher&) = delete;
     PtyLauncher& operator=(const PtyLauncher&) = delete;
 
@@ -22,7 +22,7 @@ public:
 private:
     std::unique_ptr<FileDescriptor> master;
     char name[BUFSIZ];
-    const bool show_output;
+    const uint verbosity;
 
     void change_pty_ownership_to_user();
 };

@@ -3,6 +3,7 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <syslog.h>
 #include <vector>
 
 namespace tty::arg
@@ -23,7 +24,7 @@ public:
     std::string command_list_setup_file = "";
     std::string command_list_file = "";
     std::string output_file = "tty_output.txt";
-    bool show_output = true;
+    uint verbosity = LOG_INFO;
 
     explicit Arg(int argc, char* argv[]);
     explicit Arg(const std::string& path_to_makefile, const std::string& command_list_setup_file, const std::string& command_list_file, const std::string& output_file);
@@ -32,8 +33,10 @@ public:
     {
         return os << "Args:\n"
                   << "path_to_makefile = " << arg.path_to_makefile << '\n'
+                  << "command_list_setup_file = " << arg.command_list_setup_file << '\n'
                   << "command_list_file = " << arg.command_list_file << '\n'
-                  << "output_file = " << arg.output_file << '\n';
+                  << "output_file = " << arg.output_file << '\n'
+                  << "verbosity = " << arg.verbosity << '\n';
     }
 
 private:

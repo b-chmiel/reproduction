@@ -10,13 +10,21 @@
 #include <stdexcept>
 #include <string>
 #include <sys/select.h>
+#include <sys/syslog.h>
 #include <unistd.h>
 
-using namespace std;
 using namespace tty;
+using std::atomic;
+using std::cout;
+using std::make_shared;
+using std::make_unique;
+using std::runtime_error;
+using std::stoi;
+using std::string;
+using std::string_view;
 
-PtyLauncher::PtyLauncher(string& tty_name, bool show_output)
-    : show_output(show_output)
+PtyLauncher::PtyLauncher(string& tty_name, uint verbosity)
+    : verbosity(verbosity)
 {
     int master_fd, slave_fd;
 
@@ -26,11 +34,13 @@ PtyLauncher::PtyLauncher(string& tty_name, bool show_output)
         throw runtime_error(strerror(errno));
     }
 
-    master = make_unique<FileDescriptor>(master_fd);
-    slave = make_shared<FileDescriptor>(slave_fd);
+    master = make_unique<FileDescriptor>(master_fd, verbosity);
+    slave = make_shared<FileDescriptor>(slave_fd, verbosity);
 
     tty_name = string(name);
-    cout << "Slave PTY: " << tty_name << '\n';
+
+    if (verbosity >= LOG_INFO)
+        cout << "Slave PTY: " << tty_name << '\n';
 
     change_pty_ownership_to_user();
 }
@@ -44,7 +54,7 @@ void PtyLauncher::read_output(const atomic<bool>& quit, string& output)
         const string_view line(&name[0]);
         output += line;
 
-        if (show_output)
+        if (verbosity >= LOG_DEBUG)
         {
             printf("%s", line.data());
         }

@@ -27,18 +27,19 @@
 #include <unistd.h>
 #include <vector>
 
-using namespace std;
-using namespace std::this_thread;
-using namespace tty;
-using namespace tty::arg;
 using namespace std::literals;
+using std::cout;
+using tty::run;
+using tty::arg::Arg;
+using tty::arg::CliMode;
+using tty::utils::validate_if_run_as_sudo;
 
 // https://stackoverflow.com/questions/33237254/how-to-create-pty-that-is-connectable-by-screen-app-in-linux
 int main(int argc, char* argv[])
 {
     validate_if_run_as_sudo();
 
-    const tty::arg::Arg args(argc, argv);
+    const Arg args(argc, argv);
     if (args.mode == CliMode::HELP)
     {
         return 0;
@@ -46,6 +47,6 @@ int main(int argc, char* argv[])
 
     cout << args << '\n';
 
-    tty::run(args);
+    run(args);
     return 0;
 }
