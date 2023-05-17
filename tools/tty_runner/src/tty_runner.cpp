@@ -31,11 +31,21 @@
 #include <unistd.h>
 #include <vector>
 
-using namespace std;
-using namespace std::this_thread;
 using namespace tty::arg;
 using namespace tty;
 using namespace std::literals;
+
+using std::atomic;
+using std::cout;
+using std::jthread;
+using std::mutex;
+using std::ofstream;
+using std::runtime_error;
+using std::shared_ptr;
+using std::string;
+using std::string_view;
+using std::vector;
+using std::this_thread::sleep_for;
 
 string tty_output;
 string tty_name = "";
@@ -67,7 +77,7 @@ void run_qemu_executor(const vector<string>& commands)
 
     sleep_for(3s);
 
-    while (not quit.load() and not string_contains(tty_output, "Starting network: OK"sv))
+    while (not quit.load() and not utils::string_contains(tty_output, "Starting network: OK"sv))
     {
         sleep_for(1s);
     }
@@ -98,7 +108,7 @@ void run_qemu_executor(const vector<string>& commands)
     quit.notify_all();
 }
 
-void run_qemu(const string& makefile_path)
+void run_qemu(const Arg& arg)
 {
     cout << "Launched " << __func__ << " thread\n";
 
@@ -106,8 +116,11 @@ void run_qemu(const string& makefile_path)
 
     cout << "Launching qemu instance\n";
 
-    const string command = "SERIAL_TTY=" + tty_name + " make -C " + makefile_path + " vm-tty ";
-    system(command.c_str());
+    const string command = "SERIAL_TTY=" + tty_name + " make -C " + arg.path_to_makefile + " vm-tty ";
+    const auto output = utils::exec(command.c_str());
+
+    if (arg.show_output)
+        cout << output;
 
     cout << "Stopped qemu instance\n";
 
@@ -140,12 +153,12 @@ void run_pty_killer()
     // unfortunately slave_fd destructor is not called
     // so manual deletion is required.
 
-    close(pty_slave_fd->fd);
+    ::close(pty_slave_fd->fd);
 }
 
 bool tty::output_contains(const string_view& query)
 {
-    return string_contains(tty_output, query);
+    return utils::string_contains(tty_output, query);
 }
 
 void tty::run(const tty::arg::Arg& args)
@@ -161,7 +174,7 @@ void tty::run(const tty::arg::Arg& args)
     {
         jthread pty(run_pty, args.show_output);
         jthread killer(run_pty_killer);
-        jthread qemu(run_qemu, args.path_to_makefile);
+        jthread qemu(run_qemu, args);
         jthread executor(run_qemu_executor, args.commands);
     }
 
