@@ -17,7 +17,9 @@
 using namespace std::chrono_literals;
 
 namespace fs = std::filesystem;
+namespace utf = boost::unit_test;
 
+using std::ifstream;
 using std::jthread;
 using std::make_unique;
 using std::string;
@@ -26,37 +28,22 @@ using std::chrono::milliseconds;
 using std::this_thread::sleep_for;
 
 constexpr auto path_to_dedup = "../../fs/nilfs-dedup";
-constexpr auto output_path = "../../fs/nilfs-dedup/out/tty_runner";
+const auto output_path = string(path_to_dedup) + "/out/tty_runner";
 constexpr auto timeout = 200ms;
 
-struct FixtureDedupInMemory
+struct Fixture
 {
     const tty::arg::Arg args;
     const jthread run;
 
-    FixtureDedupInMemory()
-        : args(path_to_dedup, "commands/setup.sh", "commands/generate.sh", "test_tty_output_generate.log")
+    explicit Fixture(const string& setup_file, const string& commands_file, const string& log_file)
+        : args(path_to_dedup, setup_file, commands_file, log_file)
         , run(tty::run, args)
     {
     }
 };
 
-struct FixtureDedupedAfterUmount
-{
-    const tty::arg::Arg args;
-    const jthread run;
-
-    FixtureDedupedAfterUmount()
-        : args(path_to_dedup, "commands/setup.sh", "commands/dedup.sh", "test_tty_output_remount.log")
-        , run(tty::run, args)
-    {
-    }
-};
-
-static unique_ptr<FixtureDedupInMemory> dedup_in_memory_fixture;
-static unique_ptr<FixtureDedupedAfterUmount> deduped_after_umount_fixture;
-
-static void tty_contains(const string& query, const milliseconds timeout)
+static void validate_tty_contains(const string& query, const milliseconds timeout)
 {
     uint retries = 0;
     const uint max_retries = 50;
@@ -76,7 +63,7 @@ static void tty_contains(const string& query, const milliseconds timeout)
 
 static bool file_contains(const string& file_path, const string& content)
 {
-    std::ifstream file(file_path);
+    ifstream file(file_path);
     string file_content {};
     string line {};
 
@@ -94,9 +81,9 @@ static void validate_file_contains(const string& file_path, const string& conten
     uint retries = 0;
     while (retries++ < max_retries)
     {
-        if (fs::exists(file_path) && file_contains(file_path, content))
+        if (fs::exists(file_path))
         {
-            BOOST_TEST(true);
+            BOOST_TEST(file_contains(file_path, content));
             return;
         }
 
@@ -104,6 +91,7 @@ static void validate_file_contains(const string& file_path, const string& conten
     }
 
     BOOST_TEST(false);
+    assert(false);
 }
 
 BOOST_AUTO_TEST_SUITE(generate)
@@ -111,16 +99,18 @@ BOOST_AUTO_TEST_SUITE(generate)
 constexpr auto suite_dir = "/generate";
 const string path = string(output_path) + suite_dir;
 
+unique_ptr<Fixture> fixture;
+
 BOOST_AUTO_TEST_CASE(setup)
 {
-    dedup_in_memory_fixture = make_unique<FixtureDedupInMemory>();
+    fixture = make_unique<Fixture>("commands/setup.sh", "commands/generate.sh", "test_tty_output_generate.log");
     BOOST_TEST(true);
 }
 
 BOOST_AUTO_TEST_CASE(boot_ok)
 {
-    tty_contains("Running sysctl", timeout);
-    tty_contains("Starting network", timeout);
+    validate_tty_contains("Running sysctl", timeout);
+    validate_tty_contains("Starting network", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(tty_initialized)
@@ -128,69 +118,167 @@ BOOST_AUTO_TEST_CASE(tty_initialized)
     validate_file_contains(path + "/started", "1", timeout);
 }
 
-// BOOST_AUTO_TEST_CASE(verify_before_gen)
-// {
-//     // validate_file_has_content(path_to_dedup + "/out/generate/validate_0_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
-//     BOOST_TEST(true);
-// }
+BOOST_AUTO_TEST_CASE(validate_before)
+{
+    validate_file_contains(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
+    validate_file_contains(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: FAILED", timeout);
+}
 
-// BOOST_AUTO_TEST_CASE(dedup)
-// {
-//     tty_contains("deduplication succedded, deduplicated", timeout);
-// }
-
-// BOOST_AUTO_TEST_CASE(verify_after_dedup)
-// {
-//     tty_contains("CHECKSUM VALIDATION 1 /mnt/nilfs2/f1: OK /mnt/nilfs2/f2: OK", timeout);
-// }
-
-// BOOST_AUTO_TEST_CASE(verify_after_cat)
-// {
-//     tty_contains("CHECKSUM VALIDATION 2 /mnt/nilfs2/f1: OK /mnt/nilfs2/f2: OK", timeout);
-// }
-
-// BOOST_AUTO_TEST_CASE(poweroff)
-// {
-//     tty_contains("reboot: machine restart", timeout);
-// }
+BOOST_AUTO_TEST_CASE(validate_after)
+{
+    validate_file_contains(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
 
 BOOST_AUTO_TEST_CASE(teardown)
 {
-    dedup_in_memory_fixture.reset();
+    fixture.reset();
     BOOST_TEST(true);
+}
+
+BOOST_AUTO_TEST_CASE(poweroff)
+{
+    validate_tty_contains("reboot: machine restart", timeout);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
 
-// BOOST_AUTO_TEST_SUITE(deduped_after_umount)
-// BOOST_AUTO_TEST_CASE(setup, *utf::depends_on("dedup_in_memory/teardown"))
-// {
-//     deduped_after_umount_fixture = make_unique<FixtureDedupedAfterUmount>();
-//     BOOST_TEST(true);
-// }
-// BOOST_AUTO_TEST_CASE(boot_ok, *utf::depends_on("dedup_in_memory/teardown"))
-// {
-//     tty_contains("Running sysctl", timeout);
-//     tty_contains("Starting network", timeout);
-// }
+BOOST_AUTO_TEST_SUITE(dedup)
 
-// BOOST_AUTO_TEST_CASE(verify_before_cat, *utf::depends_on("dedup_in_memory/teardown"))
-// {
-//     tty_contains("CHECKSUM VALIDATION 0 /mnt/nilfs2/f1: OK /mnt/nilfs2/f2: OK", timeout);
-// }
+constexpr auto suite_dir = "/dedup";
+const string path = string(output_path) + suite_dir;
 
-// BOOST_AUTO_TEST_CASE(verify_after_cat, *utf::depends_on("dedup_in_memory/teardown"))
-// {
-//     tty_contains("CHECKSUM VALIDATION 1 /mnt/nilfs2/f1: OK /mnt/nilfs2/f2: OK", timeout);
-// }
+unique_ptr<Fixture> fixture;
 
-// BOOST_AUTO_TEST_CASE(poweroff, *utf::depends_on("dedup_in_memory/teardown"))
-// {
-//     tty_contains("reboot: machine restart", timeout);
-// }
-// BOOST_AUTO_TEST_CASE(teardown, *utf::depends_on("dedup_in_memory/teardown"))
-// {
-//     deduped_after_umount_fixture.reset();
-//     BOOST_TEST(true);
-// }
-// BOOST_AUTO_TEST_SUITE_END()
+BOOST_AUTO_TEST_CASE(setup, *utf::depends_on("generate/poweroff"))
+{
+    fixture = make_unique<Fixture>("commands/setup.sh", "commands/dedup.sh", "test_tty_output_dedup.log");
+    BOOST_TEST(true);
+}
+
+BOOST_AUTO_TEST_CASE(boot_ok, *utf::depends_on("generate/poweroff"))
+{
+    validate_tty_contains("Running sysctl", timeout);
+    validate_tty_contains("Starting network", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(tty_initialized, *utf::depends_on("generate/poweroff"))
+{
+    validate_file_contains(path + "/started", "1", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(validate_before, *utf::depends_on("generate/poweroff"))
+{
+    validate_file_contains(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(validate_after, *utf::depends_on("generate/poweroff"))
+{
+    validate_file_contains(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(teardown, *utf::depends_on("generate/poweroff"))
+{
+    fixture.reset();
+    BOOST_TEST(true);
+}
+
+BOOST_AUTO_TEST_CASE(poweroff, *utf::depends_on("generate/poweroff"))
+{
+    validate_tty_contains("reboot: machine restart", timeout);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(validate)
+
+constexpr auto suite_dir = "/validate";
+const string path = string(output_path) + suite_dir;
+
+unique_ptr<Fixture> fixture;
+
+BOOST_AUTO_TEST_CASE(setup, *utf::depends_on("dedup/poweroff"))
+{
+    fixture = make_unique<Fixture>("commands/setup.sh", "commands/validate.sh", "test_tty_output_validate.log");
+    BOOST_TEST(true);
+}
+
+BOOST_AUTO_TEST_CASE(boot_ok, *utf::depends_on("dedup/poweroff"))
+{
+    validate_tty_contains("Running sysctl", timeout);
+    validate_tty_contains("Starting network", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(tty_initialized, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/started", "1", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(before, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(after_modification_of_second_file, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: FAILED", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(after_modification_of_second_file_after_remount, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/validate_2_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_2_checksum_f2", "/mnt/nilfs2/f2: FAILED", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(after_restoring_second_file, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/validate_3_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_3_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(after_restoring_second_file_after_remount, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/validate_4_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_4_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(after_changing_first_file, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/validate_5_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
+    validate_file_contains(path + "/validate_5_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(after_changing_first_file_after_remount, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/validate_6_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
+    validate_file_contains(path + "/validate_6_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(after_restoring_first_file, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/validate_7_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_7_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(after_restoring_first_file_after_remount, *utf::depends_on("dedup/poweroff"))
+{
+    validate_file_contains(path + "/validate_8_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_contains(path + "/validate_8_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(teardown, *utf::depends_on("dedup/poweroff"))
+{
+    fixture.reset();
+    BOOST_TEST(true);
+}
+
+BOOST_AUTO_TEST_CASE(poweroff, *utf::depends_on("dedup/poweroff"))
+{
+    validate_tty_contains("reboot: machine restart", timeout);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
