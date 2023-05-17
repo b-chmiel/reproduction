@@ -26,7 +26,7 @@ public:
     bool show_output = true;
 
     explicit Arg(int argc, char* argv[]);
-    explicit Arg(const std::string& path_to_makefile, const std::string& command_list_file, const std::string& output_file);
+    explicit Arg(const std::string& path_to_makefile, const std::string& command_list_setup_file, const std::string& command_list_file, const std::string& output_file);
 
     friend std::ostream& operator<<(std::ostream& os, const Arg& arg)
     {

@@ -21,6 +21,7 @@ directory=$1
 echo "Mounting local folder in ${MOUNT_DIRECTORY}"
 mkdir -pv $MOUNT_DIRECTORY
 mount -t 9p -o trans=virtio,version=9p2000.L host0 $MOUNT_DIRECTORY
+rm -rf $directory
 mkdir -pv $directory
 }
 

@@ -18,9 +18,19 @@
 #include <libexplain/open.h>
 #endif
 
-using namespace std;
-using namespace tty::arg;
+using namespace std::string_literals;
+
 namespace po = boost::program_options;
+
+using std::_S_in;
+using std::cerr;
+using std::cout;
+using std::getline;
+using std::ifstream;
+using std::map;
+using std::runtime_error;
+using std::string;
+using std::vector;
 
 enum class Option
 {
@@ -63,7 +73,16 @@ static vector<string> parse_commands(const string& filename)
     return result;
 }
 
-Arg::Arg(int argc, char* argv[])
+static vector<string> parse_commands(const string& setup_file, const string& commands_file)
+{
+    vector<string> setup_commands = parse_commands(setup_file);
+    vector<string> commands = parse_commands(commands_file);
+    setup_commands.insert(end(setup_commands), begin(commands), end(commands));
+
+    return setup_commands;
+}
+
+tty::arg::Arg::Arg(int argc, char* argv[])
 {
     po::options_description desc(this->doc.data());
 
@@ -110,17 +129,11 @@ Arg::Arg(int argc, char* argv[])
         this->path_to_makefile = vm[option_names.at(Option::PATH_TO_MAKEFILE)].as<string>();
     }
 
-    if (vm.count(option_names.at(Option::COMMAND_LIST_SETUP)))
+    if (vm.count(option_names.at(Option::COMMAND_LIST_SETUP)) && vm.count(option_names.at(Option::COMMAND_LIST)))
     {
         this->command_list_setup_file = vm[option_names.at(Option::COMMAND_LIST_SETUP)].as<string>();
-        this->commands = parse_commands(this->command_list_setup_file);
-    }
-
-    if (vm.count(option_names.at(Option::COMMAND_LIST)))
-    {
         this->command_list_file = vm[option_names.at(Option::COMMAND_LIST)].as<string>();
-        const auto commands = parse_commands(this->command_list_file);
-        this->commands.insert(end(this->commands), begin(commands), end(commands));
+        this->commands = parse_commands(this->command_list_setup_file, this->command_list_file);
     }
 
     if (vm.count(option_names.at(Option::OUTPUT_FILE)))
@@ -134,11 +147,12 @@ Arg::Arg(int argc, char* argv[])
     }
 }
 
-Arg::Arg(const string& path_to_makefile, const string& command_list_file, const string& output_file)
+tty::arg::Arg::Arg(const string& path_to_makefile, const string& command_list_setup_file, const string& command_list_file, const string& output_file)
     : path_to_makefile(path_to_makefile)
+    , command_list_setup_file(command_list_setup_file)
     , command_list_file(command_list_file)
     , output_file(output_file)
-    , commands(parse_commands(command_list_file))
+    , commands(parse_commands(command_list_setup_file, command_list_file))
     , show_output(false)
 {
 }
