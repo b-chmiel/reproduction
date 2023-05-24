@@ -10,12 +10,10 @@ remount_nilfs
 
 validate $OUTPUT_DIRECTORY
 
-dedup $LOOP_INTERFACE
+dedup -v $LOOP_INTERFACE
 
 validate $OUTPUT_DIRECTORY
 
-run_gc_cleanup
-
-validate $OUTPUT_DIRECTORY
-
+cp $MNT_DIR/$FILE1 $OUTPUT_DIRECTORY/
+cp $MNT_DIR/$FILE2 $OUTPUT_DIRECTORY/
 umount_nilfs

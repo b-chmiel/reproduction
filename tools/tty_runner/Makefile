@@ -17,7 +17,7 @@ $(BUILD_DIR)/$(BUILD_SYSTEM_FILENAME): CMakeLists.txt src/CMakeLists.txt test/CM
 		-B $(BUILD_DIR)
 
 test: FORCE
-	./${BUILD_DIR}/test/tests --show-progress=true
+	./${BUILD_DIR}/test/tests --log_level=all
 
 clean:
 	- rm -rf $(BUILD_DIR)

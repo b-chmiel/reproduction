@@ -6,22 +6,22 @@ NILFS_DEDUP_PATH=../../fs/nilfs-dedup
 
 ./build/src/tty \
 	--path-to-makefile $NILFS_DEDUP_PATH \
-	--command-list-setup commands/setup.sh \
-	--command-list commands/generate.sh \
+	--command-list-setup tmp/setup.sh \
+	--command-list tmp/generate.sh \
 	--output-file tty_output_generate.log \
 	--verbosity 6
 
 ./build/src/tty \
 	--path-to-makefile ../../fs/nilfs-dedup \
-	--command-list-setup commands/setup.sh \
-	--command-list commands/dedup.sh \
+	--command-list-setup tmp/setup.sh \
+	--command-list tmp/dedup.sh \
 	--output-file tty_output_dedup.log \
 	--verbosity 6
 
 ./build/src/tty \
 	--path-to-makefile ../../fs/nilfs-dedup \
-	--command-list-setup commands/setup.sh \
-	--command-list commands/validate.sh \
+	--command-list-setup tmp/setup.sh \
+	--command-list tmp/validate.sh \
 	--output-file tty_output_validate.log \
 	--verbosity 6
 

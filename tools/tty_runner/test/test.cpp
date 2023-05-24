@@ -61,7 +61,7 @@ static void validate_tty_contains(const string& query, const milliseconds timeou
     BOOST_TEST(false);
 }
 
-static bool file_contains(const string& file_path, const string& content)
+static void check_file_content_equals(const string& file_path, const string& content)
 {
     ifstream file(file_path);
     string file_content {};
@@ -72,10 +72,10 @@ static bool file_contains(const string& file_path, const string& content)
         file_content += line;
     }
 
-    return file_content.find(content) != string::npos;
+    BOOST_TEST(file_content == content);
 }
 
-static void validate_file_contains(const string& file_path, const string& content, const milliseconds timeout)
+static void validate_file_equals(const string& file_path, const string& content, const milliseconds timeout)
 {
     const uint max_retries = 50;
     uint retries = 0;
@@ -83,7 +83,7 @@ static void validate_file_contains(const string& file_path, const string& conten
     {
         if (fs::exists(file_path))
         {
-            BOOST_TEST(file_contains(file_path, content));
+            check_file_content_equals(file_path, content);
             return;
         }
 
@@ -115,19 +115,19 @@ BOOST_AUTO_TEST_CASE(boot_ok)
 
 BOOST_AUTO_TEST_CASE(tty_initialized)
 {
-    validate_file_contains(path + "/started", "1", timeout);
+    validate_file_equals(path + "/started", "1", 10ms);
 }
 
 BOOST_AUTO_TEST_CASE(validate_before)
 {
-    validate_file_contains(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
-    validate_file_contains(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: FAILED", timeout);
+    validate_file_equals(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
+    validate_file_equals(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: FAILED", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(validate_after)
 {
-    validate_file_contains(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(teardown)
@@ -138,7 +138,7 @@ BOOST_AUTO_TEST_CASE(teardown)
 
 BOOST_AUTO_TEST_CASE(poweroff)
 {
-    validate_tty_contains("reboot: machine restart", timeout);
+    validate_tty_contains("Requesting system reboot", timeout);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -164,19 +164,25 @@ BOOST_AUTO_TEST_CASE(boot_ok, *utf::depends_on("generate/poweroff"))
 
 BOOST_AUTO_TEST_CASE(tty_initialized, *utf::depends_on("generate/poweroff"))
 {
-    validate_file_contains(path + "/started", "1", timeout);
+    validate_file_equals(path + "/started", "1", 10ms);
 }
 
 BOOST_AUTO_TEST_CASE(validate_before, *utf::depends_on("generate/poweroff"))
 {
-    validate_file_contains(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(validate_after, *utf::depends_on("generate/poweroff"))
 {
-    validate_file_contains(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+}
+
+BOOST_AUTO_TEST_CASE(validate_after_gc_cleanup, *utf::depends_on("generate/poweroff"))
+{
+    validate_file_equals(path + "/validate_2_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_2_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(teardown, *utf::depends_on("generate/poweroff"))
@@ -187,7 +193,7 @@ BOOST_AUTO_TEST_CASE(teardown, *utf::depends_on("generate/poweroff"))
 
 BOOST_AUTO_TEST_CASE(poweroff, *utf::depends_on("generate/poweroff"))
 {
-    validate_tty_contains("reboot: machine restart", timeout);
+    validate_tty_contains("Requesting system reboot", 500ms);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -213,61 +219,61 @@ BOOST_AUTO_TEST_CASE(boot_ok, *utf::depends_on("dedup/poweroff"))
 
 BOOST_AUTO_TEST_CASE(tty_initialized, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/started", "1", timeout);
+    validate_file_equals(path + "/started", "1", 10ms);
 }
 
 BOOST_AUTO_TEST_CASE(before, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(after_modification_of_second_file, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: FAILED", timeout);
+    validate_file_equals(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: FAILED", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(after_modification_of_second_file_after_remount, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/validate_2_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_2_checksum_f2", "/mnt/nilfs2/f2: FAILED", timeout);
+    validate_file_equals(path + "/validate_2_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_2_checksum_f2", "/mnt/nilfs2/f2: FAILED", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(after_restoring_second_file, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/validate_3_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_3_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_3_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_3_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(after_restoring_second_file_after_remount, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/validate_4_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_4_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_4_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_4_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(after_changing_first_file, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/validate_5_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
-    validate_file_contains(path + "/validate_5_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_5_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
+    validate_file_equals(path + "/validate_5_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(after_changing_first_file_after_remount, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/validate_6_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
-    validate_file_contains(path + "/validate_6_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_6_checksum_f1", "/mnt/nilfs2/f1: FAILED", timeout);
+    validate_file_equals(path + "/validate_6_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(after_restoring_first_file, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/validate_7_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_7_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_7_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_7_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(after_restoring_first_file_after_remount, *utf::depends_on("dedup/poweroff"))
 {
-    validate_file_contains(path + "/validate_8_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_contains(path + "/validate_8_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_8_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
+    validate_file_equals(path + "/validate_8_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
 }
 
 BOOST_AUTO_TEST_CASE(teardown, *utf::depends_on("dedup/poweroff"))
@@ -278,7 +284,7 @@ BOOST_AUTO_TEST_CASE(teardown, *utf::depends_on("dedup/poweroff"))
 
 BOOST_AUTO_TEST_CASE(poweroff, *utf::depends_on("dedup/poweroff"))
 {
-    validate_tty_contains("reboot: machine restart", timeout);
+    validate_tty_contains("Requesting system reboot", timeout);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
