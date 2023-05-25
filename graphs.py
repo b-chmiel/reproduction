@@ -8,7 +8,14 @@ import subprocess
 import os
 from numbers import Number
 
-PATHS = ["./copyfs", "./nilfs", "./nilfs-dedup", "./waybackfs"]
+PATHS = ["./btrfs", "./copyfs",  "./nilfs", "./nilfs-dedup", "./waybackfs"]
+FS_MOUNT_POINTS = {
+    "./btrfs": "/dev/loop0",
+    "./copyfs": "/dev/sda1",
+    "./nilfs": "/dev/loop0",
+    "./nilfs-dedup": "/dev/loop0",
+    "./waybackfs": "/dev/sda1",
+}
 BUILD_DIR = "./build"
 
 
@@ -161,16 +168,10 @@ class Df:
 
     def __parse(self):
         result = []
-        df_lines = {
-            "./copyfs": "/dev/sda1",
-            "./nilfs": "/dev/loop0",
-            "./nilfs-dedup": "/dev/loop0",
-            "./waybackfs": "/dev/sda1",
-        }
         for path in PATHS:
             before = 0
             after = 0
-            df_line_start = df_lines[path]
+            df_line_start = FS_MOUNT_POINTS[path]
             try:
                 with open(f"fs/{path}/{self.input_file_before}") as f:
                     before = self.__df_results_read_file(f, df_line_start)
