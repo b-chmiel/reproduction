@@ -41,10 +41,10 @@ fio_install() {
 }
 
 gen_file_install() {
-    GEN_FILE_VERSION=1.0.4
+    GEN_FILE_VERSION=1.0.5-dev-aa8ab56514bd6b4bf7ac5669b620c53b604fcf82
     DIR=./gen_file_install
 
-    wget https://github.com/bachm44/gen_file/releases/download/v$GEN_FILE_VERSION/gen_file-$GEN_FILE_VERSION.tar.gz
+    wget https://github.com/bachm44/gen_file/releases/download/$GEN_FILE_VERSION/gen_file-$GEN_FILE_VERSION.tar.gz
     mkdir -pv $DIR
     tar -xf *.tar.gz -C $DIR --strip-components=1
     rm *.tar.gz
@@ -55,20 +55,19 @@ gen_file_install() {
     popd
 }
 
-install_fs() {
-    cp -rv /vagrant/source/ /home/vagrant/
-    pushd /home/vagrant/source
+kernel_install() {
+    KERNEL_VERSION=dat-dedup-a55606
+    KERNEL_IMAGE=linux-image-6.1.0-35fa9482ae36044c4267b4b4fae7523ce3929a2a_6.1.0-l_amd64.deb
+    wget https://github.com/bachm44/nilfs-dedup/releases/download/$KERNEL_VERSION/$KERNEL_IMAGE
+    dpkg -i $KERNEL_IMAGE
+}
+
+fs_install() {
+    pushd /vagrant/source
         ./configure
         make all
         make install
     popd
-}
-
-fix_ssh_keys() {
-    wget --no-check-certificate https://raw.github.com/mitchellh/vagrant/master/keys/vagrant.pub -O /home/vagrant/.ssh/authorized_keys  
-    chmod 0700 /home/vagrant/.ssh  
-    chmod 0600 /home/vagrant/.ssh/authorized_keys  
-    chown -R vagrant /home/vagrant/.ssh  
 }
 
 main() {
@@ -76,8 +75,8 @@ main() {
     bonnie
     fio_install
     gen_file_install
-    install_fs
-    fix_ssh_keys
+    kernel_install
+    fs_install
 }
 
 main

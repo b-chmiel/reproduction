@@ -35,7 +35,7 @@ build_box() {
 export -f build_box
 
 main() {
-	file_systems=('copyfs' 'nilfs' 'waybackfs')
+	file_systems=('copyfs' 'nilfs' 'nilfs-dedup' 'waybackfs')
 
 	log "Building vagrant base boxes for: ${file_systems[*]}"
 
@@ -51,12 +51,6 @@ main() {
 		build_box {1} ::: ${file_systems[@]}
 	
 	log "Finished building boxes successfully"
-
-	log "Building nilfs-dedup buildroot and linux"
-	make -C fs/nilfs-dedup buildroot
-	make -C fs/nilfs-dedup linux
-
-	log "Finished building nilfs-dedup"
 }
 
 main 
