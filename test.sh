@@ -36,39 +36,6 @@ benchmark() {
 
 export -f benchmark
 
-benchmark_dedup() { 
-	fs_name="nilfs-dedup"
-	log "Running benchmark for ${fs_name}"
-
-	cp -v templates/\#test_template_qemu1.sh fs/$fs_name/test_template_1.sh | adddate
-	cp -v templates/\#test_template_qemu2.sh fs/$fs_name/test_template_2.sh | adddate
-	cp -v templates/\#test_template_qemu3.sh fs/$fs_name/test_template_3.sh | adddate
-	cp -v templates/\#fio-job.cfg fs/$fs_name/fio-job.cfg | adddate
-
-	pushd tools/tty_runner
-		./build/src/tty \
-			--path-to-makefile ../../fs/$fs_name \
-			--command-list ../../fs/$fs_name/test_template_1.sh \
-			--output-file ../../logs/test/qemu1.log
-	popd
-
-	pushd tools/tty_runner
-		./build/src/tty \
-			--path-to-makefile ../../fs/$fs_name \
-			--command-list ../../fs/$fs_name/test_template_2.sh \
-			--output-file ../../logs/test/qemu2.log
-	popd
-
-	pushd tools/tty_runner
-		./build/src/tty \
-			--path-to-makefile ../../fs/$fs_name \
-			--command-list ../../fs/$fs_name/test_template_3.sh \
-			--output-file ../../logs/test/qemu3.log
-	popd
-}
-
-export -f benchmark_dedup
-
 copy_fio_logs() {
 	fs_name=$@
 	log "Copy logs for ${fs_name}"
@@ -94,52 +61,46 @@ generate_gnuplot() {
 export -f generate_gnuplot
 
 main() {
-	if [[ $UID != 0 ]]; then
-		echo "Please run this script with sudo"
-		exit 1
-	fi
-
-	file_systems=('copyfs' 'nilfs' 'waybackfs')
+	file_systems=('copyfs' 'nilfs' 'nilfs-dedup' 'waybackfs')
 	fio_tests=('file_append_read_test' 'file_append_write_test' 'random_read_test' 'random_write_test')
 
 	mkdir -pv $LOG_DIR
 
-	benchmark_dedup
-	# log "Benchmarking file systems: ${file_systems[*]}"
-	# parallel \
-	# 	--results ${LOG_DIR}/benchmark-results \
-	# 	--joblog ${LOG_DIR}/benchmark.log \
-	# 	-j8 \
-	# 	--tag \
-	# 	--line-buffer \
-	# 	--halt-on-error now,fail=1 \
-	# 	benchmark ::: ${file_systems[@]}
+	log "Benchmarking file systems: ${file_systems[*]}"
+	parallel \
+		--results ${LOG_DIR}/benchmark-results \
+		--joblog ${LOG_DIR}/benchmark.log \
+		-j8 \
+		--tag \
+		--line-buffer \
+		--halt-on-error now,fail=1 \
+		benchmark ::: ${file_systems[@]}
 
-	# log "Copy fio logs"
-	# parallel \
-	# 	--results ${LOG_DIR}/copy-results \
-	# 	--joblog ${LOG_DIR}/copy.log \
-	# 	-j8 \
-	# 	--tag \
-	# 	--line-buffer \
-	# 	--halt-on-error now,fail=1 \
-	# 	copy_fio_logs ::: ${file_systems[@]}
+	log "Copy fio logs"
+	parallel \
+		--results ${LOG_DIR}/copy-results \
+		--joblog ${LOG_DIR}/copy.log \
+		-j8 \
+		--tag \
+		--line-buffer \
+		--halt-on-error now,fail=1 \
+		copy_fio_logs ::: ${file_systems[@]}
 
-	# log "Generate gnuplot rendering scripts for fio tests: ${fio_tests[*]}"
-	# parallel \
-	# 	--results ${LOG_DIR}/gnuplot-results \
-	# 	--joblog ${LOG_DIR}/gnuplot.log \
-	# 	-j8 \
-	# 	--tag \
-	# 	--line-buffer \
-	# 	--halt-on-error now,fail=1 \
-	# 	generate_gnuplot ::: ${fio_tests[@]}
+	log "Generate gnuplot rendering scripts for fio tests: ${fio_tests[*]}"
+	parallel \
+		--results ${LOG_DIR}/gnuplot-results \
+		--joblog ${LOG_DIR}/gnuplot.log \
+		-j8 \
+		--tag \
+		--line-buffer \
+		--halt-on-error now,fail=1 \
+		generate_gnuplot ::: ${fio_tests[@]}
 
-	# log "Generate graphs"
-	# python graphs.py | adddate
+	log "Generate graphs"
+	python graphs.py | adddate
 
 	log "Finished successfully"
 }
 
-main 
+main
 exit 0

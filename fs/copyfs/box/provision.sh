@@ -70,6 +70,13 @@ fs_install() {
     popd
 }
 
+fix_keys() {
+    wget --no-check-certificate https://raw.github.com/mitchellh/vagrant/master/keys/vagrant.pub -O /home/vagrant/.ssh/authorized_keys  
+    chmod 0700 /home/vagrant/.ssh  
+    chmod 0600 /home/vagrant/.ssh/authorized_keys  
+    chown -R vagrant /home/vagrant/.ssh  
+}
+
 main() {
     packages
     bonnie
@@ -77,6 +84,7 @@ main() {
     gen_file_install
     kernel_install
     fs_install
+    fix_keys
 }
 
 main

@@ -59,12 +59,20 @@ kernel_install() {
     dpkg -i $KERNEL_IMAGE
 }
 
+fix_keys() {
+    wget --no-check-certificate https://raw.github.com/mitchellh/vagrant/master/keys/vagrant.pub -O /home/vagrant/.ssh/authorized_keys  
+    chmod 0700 /home/vagrant/.ssh  
+    chmod 0600 /home/vagrant/.ssh/authorized_keys  
+    chown -R vagrant /home/vagrant/.ssh  
+}
+
 main() {
     apt_packages
     bonnie
     fio_install
     gen_file_install
     kernel_install
+    fix_keys
 }
 
 main

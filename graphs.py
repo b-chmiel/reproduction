@@ -8,7 +8,7 @@ import subprocess
 import os
 from numbers import Number
 
-PATHS = ["./copyfs", "./nilfs", "./waybackfs"]
+PATHS = ["./copyfs", "./nilfs", "./nilfs-dedup", "./waybackfs"]
 BUILD_DIR = "./build"
 
 
@@ -164,6 +164,7 @@ class Df:
         df_lines = {
             "./copyfs": "/dev/sda1",
             "./nilfs": "/dev/loop0",
+            "./nilfs-dedup": "/dev/loop0",
             "./waybackfs": "/dev/sda1",
         }
         for path in PATHS:

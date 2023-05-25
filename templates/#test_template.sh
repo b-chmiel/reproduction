@@ -77,7 +77,7 @@ delete_test() {
 main() {
     mkdir -pv $OUTPUT_DIRECTORY
 
-    # bonnie_test
+    bonnie_test
     fio_test
     delete_test
 }
