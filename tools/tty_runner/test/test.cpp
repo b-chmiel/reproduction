@@ -29,7 +29,7 @@ using std::this_thread::sleep_for;
 
 constexpr auto path_to_dedup = "../../fs/nilfs-dedup";
 const auto output_path = string(path_to_dedup) + "/out/tty_runner";
-constexpr auto timeout = 200ms;
+constexpr auto timeout = 300ms;
 
 struct Fixture
 {
@@ -175,8 +175,8 @@ BOOST_AUTO_TEST_CASE(validate_before, *utf::depends_on("generate/poweroff"))
 
 BOOST_AUTO_TEST_CASE(validate_after, *utf::depends_on("generate/poweroff"))
 {
-    validate_file_equals(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
-    validate_file_equals(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    validate_file_equals(path + "/validate_1_checksum_f1", "/mnt/nilfs2/f1: OK", 2000ms);
+    validate_file_equals(path + "/validate_1_checksum_f2", "/mnt/nilfs2/f2: OK", 2000ms);
 }
 
 BOOST_AUTO_TEST_CASE(validate_after_gc_cleanup, *utf::depends_on("generate/poweroff"))

@@ -14,6 +14,11 @@ dedup -v $LOOP_INTERFACE
 
 validate $OUTPUT_DIRECTORY
 
-cp $MNT_DIR/$FILE1 $OUTPUT_DIRECTORY/
-cp $MNT_DIR/$FILE2 $OUTPUT_DIRECTORY/
+umount_nilfs
+remount_nilfs
+
+run_gc_cleanup
+
+validate $OUTPUT_DIRECTORY
+
 umount_nilfs

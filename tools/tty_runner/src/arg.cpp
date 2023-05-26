@@ -101,7 +101,7 @@ tty::arg::Arg::Arg(int argc, char* argv[])
       "Filename of file with results from commands execution (without "
       "kernel "
       "startup messages)")
-    (option_names.at(Option::VERBOSITY), po::value<bool>()->default_value(this->verbosity),
+    (option_names.at(Option::VERBOSITY), po::value<uint>()->default_value(this->verbosity),
     "Log level, see LOG_* in syslog.h");
     // clang-format on
 
@@ -145,7 +145,7 @@ tty::arg::Arg::Arg(int argc, char* argv[])
 
     if (vm.count(option_names.at(Option::VERBOSITY)))
     {
-        this->verbosity = max(vm[option_names.at(Option::VERBOSITY)].as<int>(), LOG_DEBUG);
+        this->verbosity = vm[option_names.at(Option::VERBOSITY)].as<uint>();
     }
 }
 
