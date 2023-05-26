@@ -3,18 +3,14 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-zfs_install() {
-    ZFS_VERSION=zfs-2.1.11
-    DIR=./zfs_install
-    wget https://github.com/openzfs/zfs/releases/download/$ZFS_VERSION/$ZFS_VERSION.tar.gz
-    mkdir -pv $DIR
-    tar -xf *.tar.gz -C $DIR --strip-components=1
-    rm *.tar.gz
-    pushd $DIR
-        ./configure KERNEL_LLVM=1 --with-linux-obj=/vagrant/linux --with-linux=/vagrant/linux
-        make -s -j
-        make install
-    popd
+export DEBIAN_FRONTEND=noninteractive
+
+apt_packages() {
+	sed -r -i 's/^deb(.*)$/deb\1 contrib/g' /etc/apt/sources.list 
+    apt-get update
+    apt-get install -y --allow-unauthenticated \
+        wget make g++ uuid-dev libblkid-dev libblkid1 libmount1 libmount-dev \
+        dpkg-dev linux-headers-generic linux-image-generic zfs-dkms zfsutils-linux
 }
 
 bonnie() {
@@ -68,12 +64,11 @@ fix_keys() {
 }
 
 main() {
-    # apt_packages
-    zfs_install
-    # bonnie
-    # fio_install
-    # gen_file_install
-    # fix_keys
+    apt_packages
+    bonnie
+    fio_install
+    gen_file_install
+    fix_keys
 }
 
 main
