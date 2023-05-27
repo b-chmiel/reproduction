@@ -57,7 +57,7 @@ run_gc_cleanup() {
 
 dedup_test() {
 	DIR=$OUTPUT_DIRECTORY/dedup
-	GEN_SIZE=16M
+	GEN_SIZE=$1
 
 	echo "Deduplication test with output directory $DIR and gen_size $GEN_SIZE"
 
@@ -73,7 +73,7 @@ dedup_test() {
 
 	echo "Saving filesystem size after generation"
 	remount_nilfs
-	df > $DIR/df_before_deduplication.txt
+	df > $DIR/df_before_deduplication_$GEN_SIZE.txt
 	dedup -v $LOOP_INTERFACE
 	umount_nilfs
 
@@ -83,7 +83,7 @@ dedup_test() {
 
 	echo "Saving filesystem size after deduplication"
 	remount_nilfs
-	df > $DIR/df_after_deduplication.txt
+	df > $DIR/df_after_deduplication_$GEN_SIZE.txt
 	umount_nilfs
 
 	rm -fv $FILESYSTEM_FILE
@@ -91,7 +91,11 @@ dedup_test() {
 
 main() {
 	mkdir -pv $OUTPUT_DIRECTORY
-	dedup_test
+	dedup_test 4M
+	dedup_test 8M
+	dedup_test 16M
+	dedup_test 32M
+	dedup_test 64M
 }
 
 main

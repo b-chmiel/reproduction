@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
-import matplotlib.pyplot as plt  # type:ignore
-
+from enum import Enum
+import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 import subprocess
 import os
 from numbers import Number
+from collections import OrderedDict
 
-PATHS = ["./btrfs", "./copyfs",  "./nilfs", "./nilfs-dedup", "./waybackfs"]
+PATHS = ["./btrfs", "./copyfs", "./nilfs", "./nilfs-dedup", "./waybackfs"]
 FS_MOUNT_POINTS = {
     "./btrfs": "/dev/loop0",
     "./copyfs": "/dev/sda1",
@@ -17,6 +18,14 @@ FS_MOUNT_POINTS = {
     "./waybackfs": "/dev/sda1",
 }
 BUILD_DIR = "./build"
+
+
+class FilesystemType(Enum):
+    BTRFS = "btrfs"
+    COPYFS = "copyfs"
+    NILFS = "nilfs"
+    NILFS_DEDUP = "nilfs-dedup"
+    WAYBACKFS = "waybackfs"
 
 
 class Plot:
@@ -145,6 +154,9 @@ class Bonnie:
 
 
 class Df:
+    class DfPlot:
+        pass
+
     class __DfResult:
         def __init__(self, before, after, name):
             self.before = before
@@ -248,6 +260,109 @@ class Fio:
         return len([s for s in list if s.isdigit()]) != 0
 
 
+class DfSize:
+    def __init__(self, filepath: str, filesystem: FilesystemType):
+        self.filepath = filepath
+        self.filesystem = filesystem
+        line = self.__extract_mountpoint_line()
+        self.size = self.__extract_size(line)
+
+    def __extract_mountpoint_line(self):
+        with open(self.filepath) as f:
+            for line in f.readlines():
+                line = line.strip().split()
+                mount_point = line[0]
+                fs_mount_point = FS_MOUNT_POINTS["./" + self.filesystem.value]
+                if fs_mount_point == mount_point:
+                    return line
+
+    def __extract_size(self, line):
+        return int(line[2])
+
+
+class NilfsDedupDf:
+    filesystem_type = FilesystemType.NILFS_DEDUP
+    out_dir = f"fs/{filesystem_type.value}/out/dedup"
+    plot_title = "Deduplication ratio for different file sizes"
+    plot_filename = f"{BUILD_DIR}/nilfs_dedup_dedup_ratio.jpg"
+
+    def __init__(self):
+        self.files: list[self.NilfsDedupDfFile] = []
+        for _, _, files in os.walk(self.out_dir):
+            for file in files:
+                self.files.append(self.NilfsDedupDfFile(file))
+        self.__process_files()
+
+    def sort_by_size_without_postfix(self, key):
+        size = key[0]
+        return int(size[:-1])
+
+    def __process_files(self):
+        file_sizes = self.__classify_by_file_size()
+        ordered_sizes = OrderedDict(
+            sorted(file_sizes.items(), key=self.sort_by_size_without_postfix)
+        )
+
+        x = []
+        y = []
+        for entry in ordered_sizes:
+            xx, yy = self.__xy_for_file_size(entry, ordered_sizes)
+            x.append(xx)
+            y.append(yy)
+
+        p = Plot(
+            x,
+            y,
+            "File size",
+            "Deduplication ratio",
+            self.plot_title,
+            self.plot_filename,
+        )
+        p.plot()
+
+    def __xy_for_file_size(self, key, sizes):
+        x = key
+        before, after = sizes[key]
+        if before.type == NilfsDedupDf.NilfsDedupDfFileType.AFTER:
+            before, after = after, before
+        y = self.__deduplication_ratio(before.df_size.size, after.df_size.size)
+        return x, y
+
+    def __classify_by_file_size(self):
+        file_sizes = {}
+        for file in self.files:
+            if file.file_size in file_sizes.keys():
+                file_sizes[file.file_size].append(file)
+            else:
+                file_sizes[file.file_size] = [file]
+        return file_sizes
+
+    def __deduplication_ratio(self, before, after):
+        return before / after
+
+    class NilfsDedupDfFileType(Enum):
+        BEFORE = "before"
+        AFTER = "after"
+
+    class NilfsDedupDfFile:
+        def __init__(self, filename: str):
+            self.filename = filename
+            raw_type = filename.strip().split("_")[1]
+            if raw_type == NilfsDedupDf.NilfsDedupDfFileType.BEFORE.value:
+                self.type = NilfsDedupDf.NilfsDedupDfFileType.BEFORE
+            elif raw_type == NilfsDedupDf.NilfsDedupDfFileType.AFTER.value:
+                self.type = NilfsDedupDf.NilfsDedupDfFileType.AFTER
+            else:
+                raise Exception(
+                    f"Invalid df file type: '{raw_type}', in file: '{filename}'"
+                )
+            # match -----------------v_v
+            # df_after_deduplication_16M.txt
+            self.file_size = filename.strip().split("_")[3].split(".")[0]
+            filepath = f"{NilfsDedupDf.out_dir}/{self.filename}"
+            self.df_size = DfSize(filepath, NilfsDedupDf.filesystem_type)
+
+
 def create_dir(dir_name: str):
     Path(dir_name).mkdir(parents=True, exist_ok=True)
 
@@ -299,13 +414,14 @@ def fio_df():
 
 
 def main():
-    create_dir(BUILD_DIR)
-    create_dir(BUILD_DIR + "/bonnie")
-    Bonnie()
-    bonnie_df()
-    delete_df()
-    fio_df()
-    Fio()
+    # create_dir(BUILD_DIR)
+    # create_dir(BUILD_DIR + "/bonnie")
+    # Bonnie()
+    # bonnie_df()
+    # delete_df()
+    # fio_df()
+    # Fio()
+    NilfsDedupDf()
 
 
 if __name__ == "__main__":
