@@ -56,10 +56,18 @@ gen_file_install() {
 }
 
 kernel_install() {
-    KERNEL_VERSION=dat-dedup-a55606
-    KERNEL_IMAGE=linux-image-6.1.0-35fa9482ae36044c4267b4b4fae7523ce3929a2a_6.1.0-l_amd64.deb
-    wget https://github.com/bachm44/nilfs-dedup/releases/download/$KERNEL_VERSION/$KERNEL_IMAGE
+    RELEASE=nilfsdedup-f08aabf
+    KERNEL_IMAGE=linux-image-6.1.0-32b0e7d60_6.1.0-l_amd64.deb
+    KERNEL_HEADERS=linux-headers-6.1.0-32b0e7d60_6.1.0-l_amd64.deb
+    KERNEL_LIBC=linux-libc-dev_6.1.0-l_amd64.deb
+
+    wget https://github.com/bachm44/nilfs-dedup/releases/download/$RELEASE/$KERNEL_IMAGE
+    wget https://github.com/bachm44/nilfs-dedup/releases/download/$RELEASE/$KERNEL_HEADERS
+    wget https://github.com/bachm44/nilfs-dedup/releases/download/$RELEASE/$KERNEL_LIBC
+
     dpkg -i $KERNEL_IMAGE
+    dpkg -i $KERNEL_HEADERS
+    dpkg -i $KERNEL_LIBC
 }
 
 fs_install() {

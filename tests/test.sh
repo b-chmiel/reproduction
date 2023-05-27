@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# This file will be copied to each folder with file system
-# and executed in Vagrantbox
-
 set -euo pipefail
 
 if [[ $# -eq 0 ]] ; then
@@ -12,7 +9,7 @@ fi
 
 FS_NAME=$1
 
-source test_template_env.sh
+source /tests/test_env.sh
 
 bonnie_test() {
     DIR=$OUTPUT_DIRECTORY/bonnie
@@ -29,7 +26,7 @@ fio_test() {
     DIR=$OUTPUT_DIRECTORY/fio
     mkdir -pv $DIR
 
-    mv fio-job.cfg $DESTINATION/
+    cp -v /tests/fio-job.cfg $DESTINATION/
     pushd $DESTINATION
         df >> $DIR/df_before_fio_file_append_read_test.txt
         fio fio-job.cfg --section file_append_read_test
@@ -77,9 +74,9 @@ delete_test() {
 main() {
     mkdir -pv $OUTPUT_DIRECTORY
 
-    bonnie_test
-    fio_test
-    delete_test
+    # bonnie_test
+    # fio_test
+    # delete_test
 }
 
 main

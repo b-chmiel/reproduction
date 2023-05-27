@@ -1,4 +1,5 @@
 - adjust delete test to show reason for deduplication
-- fix copyfs error when creating and deleting sequentially
-  file with the same name
 - increase disk size for vagrant machines
+- deduplication test with comparison of dedup tools according to their efficiency
+(deduplication ratio). Measure it for different files (for example with size growing in
+exponential scale)

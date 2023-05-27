@@ -25,10 +25,6 @@ benchmark() {
 	fs_name=$@
 	log "Running benchmark for ${fs_name}"
 
-	cp -v templates/\#test_template.sh fs/$fs_name/test_template.sh | adddate
-	cp -v templates/\#test_template_env.sh fs/$fs_name/test_template_env.sh | adddate
-	cp -v templates/\#fio-job.cfg fs/$fs_name/fio-job.cfg | adddate
-
 	pushd fs/$fs_name
 		bash run.sh | adddate
 	popd

@@ -8,4 +8,5 @@ Vagrant.configure("2") do |config|
     vb.customize ['modifyvm', :id, '--paravirtprovider', 'kvm']
   end
 
+  config.vm.synced_folder "../../tests", "/tests"
 end

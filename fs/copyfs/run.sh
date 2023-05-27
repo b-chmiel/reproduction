@@ -9,10 +9,9 @@ vagrant ssh -- -t <<EOF
 set -euo pipefail
 IFS=$'\n\t'
 
-cd /vagrant
-sudo bash setup.sh
-sudo bash test_template.sh COPYFS
-sudo bash teardown.sh
+sudo bash /vagrant/setup.sh
+sudo bash /tests/test.sh COPYFS
+sudo bash /vagrant/teardown.sh
 EOF
 
 vagrant destroy -f

@@ -87,7 +87,7 @@ done
 function run_gc_cleanup {
 nilfs_cleanerd
 sleep 3
-nilfs-clean -p 0 --verbose --speed 32
+nilfs-clean -p 0 -m 0 --verbose --speed 32
 echo 'Waiting for garbage collection end'
 tail -n0 -f /var/log/messages | sed '/manual run completed/ q'
 echo 'Garbage collection ended'

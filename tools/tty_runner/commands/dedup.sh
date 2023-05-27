@@ -10,7 +10,7 @@ remount_nilfs
 
 validate $OUTPUT_DIRECTORY
 
-dedup $LOOP_INTERFACE
+dedup -v $LOOP_INTERFACE
 
 validate $OUTPUT_DIRECTORY
 
