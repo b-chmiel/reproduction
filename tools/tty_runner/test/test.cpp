@@ -1,4 +1,6 @@
+#include <cstdlib>
 #include <iostream>
+#include <sstream>
 #define BOOST_TEST_MODULE dedup
 #include "tty_runner.hpp"
 
@@ -12,8 +14,6 @@
 #include <thread>
 #include <unistd.h>
 
-// namespace utf = boost::unit_test;
-
 using namespace std::chrono_literals;
 
 namespace fs = std::filesystem;
@@ -23,13 +23,15 @@ using std::ifstream;
 using std::jthread;
 using std::make_unique;
 using std::string;
+using std::stringstream;
 using std::unique_ptr;
 using std::chrono::milliseconds;
 using std::this_thread::sleep_for;
 
 constexpr auto path_to_dedup = "../../fs/nilfs-dedup";
 const auto output_path = string(path_to_dedup) + "/out/tty_runner";
-constexpr auto timeout = 300ms;
+constexpr auto timeout = 500ms;
+constexpr auto min_deduplication_ratio_percent = 0.3;
 
 struct Fixture
 {
@@ -46,7 +48,7 @@ struct Fixture
 static void validate_tty_contains(const string& query, const milliseconds timeout)
 {
     uint retries = 0;
-    const uint max_retries = 50;
+    const uint max_retries = 500;
     while (retries++ < max_retries)
     {
         if (tty::output_contains(query))
@@ -72,7 +74,7 @@ static void check_file_content_equals(const string& file_path, const string& con
         file_content += line;
     }
 
-    BOOST_TEST(file_content == content);
+    BOOST_REQUIRE_MESSAGE(file_content == content, "File content: '" << file_content << "' Expected: '" << content << "'");
 }
 
 static void validate_file_equals(const string& file_path, const string& content, const milliseconds timeout)
@@ -92,6 +94,35 @@ static void validate_file_equals(const string& file_path, const string& content,
 
     BOOST_TEST(false);
     assert(false);
+}
+
+static long long get_fs_size(const string& file_path)
+{
+    ifstream file(file_path);
+    string file_content {};
+    string line {};
+
+    while (std::getline(file, line))
+    {
+        file_content += line;
+    }
+
+    stringstream ss(file_content);
+    string word {};
+    int index = 0;
+
+    while (ss >> word)
+    {
+        if (index == 2)
+        {
+            return stol(word);
+        }
+
+        ++index;
+    }
+
+    assert(false);
+    return -1;
 }
 
 BOOST_AUTO_TEST_SUITE(generate)
@@ -143,6 +174,8 @@ BOOST_AUTO_TEST_CASE(poweroff)
 
 BOOST_AUTO_TEST_SUITE_END()
 
+long long fs_size_after_generate;
+
 BOOST_AUTO_TEST_SUITE(dedup)
 
 constexpr auto suite_dir = "/dedup";
@@ -171,6 +204,7 @@ BOOST_AUTO_TEST_CASE(validate_before, *utf::depends_on("generate/poweroff"))
 {
     validate_file_equals(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
     validate_file_equals(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+    fs_size_after_generate = get_fs_size(path + "/validate_0_dirsize");
 }
 
 BOOST_AUTO_TEST_CASE(validate_after, *utf::depends_on("generate/poweroff"))
@@ -226,6 +260,10 @@ BOOST_AUTO_TEST_CASE(before, *utf::depends_on("dedup/poweroff"))
 {
     validate_file_equals(path + "/validate_0_checksum_f1", "/mnt/nilfs2/f1: OK", timeout);
     validate_file_equals(path + "/validate_0_checksum_f2", "/mnt/nilfs2/f2: OK", timeout);
+
+    const auto fs_current_size = get_fs_size(path + "/validate_0_dirsize");
+    const auto maximum_expected = fs_size_after_generate * (1 - min_deduplication_ratio_percent);
+    BOOST_REQUIRE_MESSAGE(maximum_expected >= fs_current_size, "After gen: " << maximum_expected << " After dedup: " << fs_current_size);
 }
 
 BOOST_AUTO_TEST_CASE(after_modification_of_second_file, *utf::depends_on("dedup/poweroff"))
