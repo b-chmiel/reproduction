@@ -6,7 +6,9 @@ IFS=$'\n\t'
 apt_packages() {
     apt-get update && \
         export DEBIAN_FRONTEND=noninteractive && \
-        apt-get install -y --allow-unauthenticated wget make g++ btrfs-progs
+        apt-get install -y --allow-unauthenticated wget make g++ btrfs-progs duperemove \
+            git pkg-config build-essential btrfs-progs libbtrfs-dev uuid-dev markdown \
+            uuid-runtime python3-pip libsqlite3-dev
 }
 
 bonnie() {
@@ -32,7 +34,7 @@ fio_install() {
     rm *.tar.gz
     pushd $DIR
         ./configure
-        make
+        make -j2
         make install
     popd
 }
@@ -47,7 +49,7 @@ gen_file_install() {
     rm *.tar.gz
     pushd $DIR
         ./configure
-        make
+        make -j2
         make install
     popd
 }
@@ -67,6 +69,30 @@ kernel_install() {
     dpkg -i $KERNEL_LIBC
 }
 
+bees_install() {
+    DIR=./bees
+
+    git clone --branch v0.9.3 --depth 1 https://github.com/Zygo/bees.git
+
+    pushd $DIR
+        make -j2
+        make install
+    popd
+}
+
+dduper_install() {
+    DIR=./dduper
+    COMMIT=11b78558f1b1677ce9407909cecaeb3374828adb
+    git clone https://github.com/Lakshmipathi/dduper.git
+
+    pushd $DIR
+        git checkout $COMMIT
+        pip install -r requirements.txt
+        cp -v bin/btrfs.static /usr/sbin/
+        cp -v dduper /usr/sbin/        
+    popd
+}
+
 fix_keys() {
     wget --no-check-certificate https://raw.github.com/mitchellh/vagrant/master/keys/vagrant.pub -O /home/vagrant/.ssh/authorized_keys  
     chmod 0700 /home/vagrant/.ssh  
@@ -80,6 +106,8 @@ main() {
     fio_install
     gen_file_install
     kernel_install
+    bees_install
+    dduper_install
     fix_keys
 }
 

@@ -8,8 +8,8 @@ Vagrant.configure("2") do |config|
 
   config.vm.provider "virtualbox" do |vb|
     vb.name = 'reproduction-btrfs'
-    vb.cpus = "1"
-    vb.memory = "256"
+    vb.cpus = "2"
+    vb.memory = "1024"
 
     vb.customize ['modifyvm', :id, '--paravirtprovider', 'kvm']
     vb.customize ['modifyvm', :id, '--natdnshostresolver1', 'on']
