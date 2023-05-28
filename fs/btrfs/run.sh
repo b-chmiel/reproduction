@@ -12,6 +12,7 @@ IFS=$'\n\t'
 sudo bash /vagrant/setup.sh
 sudo bash /tests/test.sh BTRFS
 sudo bash /vagrant/teardown.sh
+sudo bash /tests/test_btrfs_dedup.sh
 HEREDOC
 
 vagrant destroy -f

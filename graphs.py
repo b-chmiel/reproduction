@@ -280,17 +280,24 @@ class DfSize:
         return int(line[2])
 
 
-class NilfsDedupDf:
-    filesystem_type = FilesystemType.NILFS_DEDUP
-    out_dir = f"fs/{filesystem_type.value}/out/dedup"
-    plot_title = "Deduplication ratio for different file sizes"
-    plot_filename = f"{BUILD_DIR}/nilfs_dedup_dedup_ratio.jpg"
+class DedupDf:
+    def __init__(
+        self,
+        plot_title: str,
+        plot_filename: str,
+        fs_type: FilesystemType,
+        tool_name: str,
+    ):
+        self.plot_title = plot_title
+        self.plot_filename = plot_filename
+        self.files: list[self.DedupDfFile] = []
+        self.tool_name = tool_name
 
-    def __init__(self):
-        self.files: list[self.NilfsDedupDfFile] = []
+        self.out_dir = f"fs/{fs_type.value}/out/dedup"
         for _, _, files in os.walk(self.out_dir):
             for file in files:
-                self.files.append(self.NilfsDedupDfFile(file))
+                if tool_name in file:
+                    self.files.append(self.DedupDfFile(self.out_dir, file, fs_type))
         self.__process_files()
 
     def sort_by_size_without_postfix(self, key):
@@ -323,7 +330,7 @@ class NilfsDedupDf:
     def __xy_for_file_size(self, key, sizes):
         x = key
         before, after = sizes[key]
-        if before.type == NilfsDedupDf.NilfsDedupDfFileType.AFTER:
+        if before.type == DedupDf.DedupDfFileType.AFTER:
             before, after = after, before
         y = self.__deduplication_ratio(before.df_size.size, after.df_size.size)
         return x, y
@@ -340,27 +347,28 @@ class NilfsDedupDf:
     def __deduplication_ratio(self, before, after):
         return before / after
 
-    class NilfsDedupDfFileType(Enum):
+    class DedupDfFileType(Enum):
         BEFORE = "before"
         AFTER = "after"
 
-    class NilfsDedupDfFile:
-        def __init__(self, filename: str):
+    class DedupDfFile:
+        def __init__(self, out_dir: str, filename: str, fs_type: FilesystemType):
             self.filename = filename
             raw_type = filename.strip().split("_")[1]
-            if raw_type == NilfsDedupDf.NilfsDedupDfFileType.BEFORE.value:
-                self.type = NilfsDedupDf.NilfsDedupDfFileType.BEFORE
-            elif raw_type == NilfsDedupDf.NilfsDedupDfFileType.AFTER.value:
-                self.type = NilfsDedupDf.NilfsDedupDfFileType.AFTER
+            if raw_type == DedupDf.DedupDfFileType.BEFORE.value:
+                self.type = DedupDf.DedupDfFileType.BEFORE
+            elif raw_type == DedupDf.DedupDfFileType.AFTER.value:
+                self.type = DedupDf.DedupDfFileType.AFTER
             else:
                 raise Exception(
                     f"Invalid df file type: '{raw_type}', in file: '{filename}'"
                 )
             # match -----------------v_v
             # df_after_deduplication_16M.txt
-            self.file_size = filename.strip().split("_")[3].split(".")[0]
-            filepath = f"{NilfsDedupDf.out_dir}/{self.filename}"
-            self.df_size = DfSize(filepath, NilfsDedupDf.filesystem_type)
+            self.prog_name = filename.strip().split("_")[3]
+            self.file_size = filename.strip().split("_")[4].split(".")[0]
+            filepath = f"{out_dir}/{self.filename}"
+            self.df_size = DfSize(filepath, fs_type)
 
 
 def create_dir(dir_name: str):
@@ -421,7 +429,30 @@ def main():
     delete_df()
     fio_df()
     Fio()
-    NilfsDedupDf()
+    DedupDf(
+        plot_title="Nilfs deduplication ratio for different file sizes",
+        plot_filename=f"{BUILD_DIR}/nilfs_dedup_dedup_ratio.jpg",
+        fs_type=FilesystemType.NILFS_DEDUP,
+        tool_name="dedup",
+    )
+    DedupDf(
+        plot_title="Dduper deduplication ratio for different file sizes",
+        plot_filename=f"{BUILD_DIR}/dduper_dedup_ratio.jpg",
+        fs_type=FilesystemType.BTRFS,
+        tool_name="dduper",
+    )
+    DedupDf(
+        plot_title="Duperemove deduplication ratio for different file sizes",
+        plot_filename=f"{BUILD_DIR}/duperemove_dedup_ratio.jpg",
+        fs_type=FilesystemType.BTRFS,
+        tool_name="duperemove",
+    )
+    # DedupDf(
+    #     plot_title="Bees deduplication ratio for different file sizes",
+    #     plot_filename=f"{BUILD_DIR}/bees_dedup_ratio.jpg",
+    #     fs_type=FilesystemType.BTRFS,
+    #     tool_name="bees",
+    # )
 
 
 if __name__ == "__main__":
