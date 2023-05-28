@@ -9,16 +9,6 @@ import os
 from numbers import Number
 from collections import OrderedDict
 
-PATHS = ["./btrfs", "./copyfs", "./nilfs", "./nilfs-dedup", "./waybackfs"]
-FS_MOUNT_POINTS = {
-    "./btrfs": "/dev/loop0",
-    "./copyfs": "/dev/sda1",
-    "./nilfs": "/dev/loop0",
-    "./nilfs-dedup": "/dev/loop0",
-    "./waybackfs": "/dev/sda1",
-}
-BUILD_DIR = "./build"
-
 
 class FilesystemType(Enum):
     BTRFS = "btrfs"
@@ -26,6 +16,16 @@ class FilesystemType(Enum):
     NILFS = "nilfs"
     NILFS_DEDUP = "nilfs-dedup"
     WAYBACKFS = "waybackfs"
+
+
+FS_MOUNT_POINTS = {
+    FilesystemType.BTRFS: "/dev/loop0",
+    FilesystemType.COPYFS: "/dev/sda1",
+    FilesystemType.NILFS: "/dev/loop0",
+    FilesystemType.NILFS_DEDUP: "/dev/loop0",
+    FilesystemType.WAYBACKFS: "/dev/sda1",
+}
+BUILD_DIR = "./build"
 
 
 class Plot:
@@ -67,8 +67,8 @@ class Bonnie:
 
     def __parse(self):
         result = ""
-        for path in PATHS:
-            with open(f"fs/{path}/{self.input_file}") as f:
+        for path in FilesystemType:
+            with open(f"fs/{path.value}/{self.input_file}") as f:
                 bonnie_output = ""
                 while line := f.readline().rstrip():
                     bonnie_output += self.__convert_units(line)
@@ -180,17 +180,17 @@ class Df:
 
     def __parse(self):
         result = []
-        for path in PATHS:
+        for path in FilesystemType:
             before = 0
             after = 0
             df_line_start = FS_MOUNT_POINTS[path]
             try:
-                with open(f"fs/{path}/{self.input_file_before}") as f:
+                with open(f"fs/{path.value}/{self.input_file_before}") as f:
                     before = self.__df_results_read_file(f, df_line_start)
 
-                with open(f"fs/{path}/{self.input_file_after}") as f:
+                with open(f"fs/{path.value}/{self.input_file_after}") as f:
                     after = self.__df_results_read_file(f, df_line_start)
-                result.append(self.__DfResult(before, after, path[2:]))
+                result.append(self.__DfResult(before, after, path.value))
 
             except FileNotFoundError:
                 print(f"Cannot read df file for '{path}'. Skipping")
@@ -272,7 +272,7 @@ class DfSize:
             for line in f.readlines():
                 line = line.strip().split()
                 mount_point = line[0]
-                fs_mount_point = FS_MOUNT_POINTS["./" + self.filesystem.value]
+                fs_mount_point = FS_MOUNT_POINTS[self.filesystem]
                 if fs_mount_point == mount_point:
                     return line
 
@@ -414,13 +414,13 @@ def fio_df():
 
 
 def main():
-    # create_dir(BUILD_DIR)
-    # create_dir(BUILD_DIR + "/bonnie")
-    # Bonnie()
-    # bonnie_df()
-    # delete_df()
-    # fio_df()
-    # Fio()
+    create_dir(BUILD_DIR)
+    create_dir(BUILD_DIR + "/bonnie")
+    Bonnie()
+    bonnie_df()
+    delete_df()
+    fio_df()
+    Fio()
     NilfsDedupDf()
 
 
