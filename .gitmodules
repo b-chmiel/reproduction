@@ -19,3 +19,6 @@
 [submodule "tools/bfcmp"]
 	path = tools/bfcmp
 	url = https://gitlab.com/mezantrop/bfcmp
+[submodule "tools/genfile"]
+	path = tools/genfile
+	url = git@github.com:bachm44/genfile.git
