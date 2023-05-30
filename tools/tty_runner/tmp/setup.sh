@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # set logging level
-echo "1" > /proc/sys/kernel/printk
+echo "5" > /proc/sys/kernel/printk
 
 FS_FILE_SIZE=18G
 FS_BIN_FILE=/nilfs2.bin
@@ -11,7 +11,7 @@ SEED=420
 FILE1=f1
 FILE2=f2
 SHARED_DIRECTORY=/mnt/work
-GEN_SIZE=16M
+GEN_SIZE=128M
 
 VALIDATION_ID=0
 

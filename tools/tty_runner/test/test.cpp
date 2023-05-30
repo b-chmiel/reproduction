@@ -263,7 +263,7 @@ BOOST_AUTO_TEST_CASE(before, *utf::depends_on("dedup/poweroff"))
 
     const auto fs_current_size = get_fs_size(path + "/validate_0_dirsize");
     const auto maximum_expected = fs_size_after_generate * (1 - min_deduplication_ratio_percent);
-    BOOST_REQUIRE_MESSAGE(maximum_expected >= fs_current_size, "After gen: " << maximum_expected << " After dedup: " << fs_current_size);
+    BOOST_REQUIRE_MESSAGE(maximum_expected >= fs_current_size, "After gen: " << fs_size_after_generate << " Expected efficiency: " << min_deduplication_ratio_percent << " Expected fs size: " << maximum_expected << " Actual: " << fs_current_size);
 }
 
 BOOST_AUTO_TEST_CASE(after_modification_of_second_file, *utf::depends_on("dedup/poweroff"))

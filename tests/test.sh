@@ -63,7 +63,7 @@ delete_test() {
         do
 	    echo "Trial ${counter} / ${TRIALS}"
 	
-            gen_file --size=1G --seed=$SEED $TEST_FILE
+            genfile --size=1G --seed=$SEED $TEST_FILE
             rm -fv $TEST_FILE
 	    ((counter++))
         done

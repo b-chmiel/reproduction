@@ -39,11 +39,11 @@ fio_install() {
     popd
 }
 
-gen_file_install() {
+genfile_install() {
     GEN_FILE_VERSION=1.0.5-dev-aa8ab56514bd6b4bf7ac5669b620c53b604fcf82
-    DIR=./gen_file_install
+    DIR=./genfile_install
 
-    wget https://github.com/bachm44/gen_file/releases/download/$GEN_FILE_VERSION/gen_file-$GEN_FILE_VERSION.tar.gz
+    wget https://github.com/bachm44/genfile/releases/download/$GEN_FILE_VERSION/genfile-$GEN_FILE_VERSION.tar.gz
     mkdir -pv $DIR
     tar -xf *.tar.gz -C $DIR --strip-components=1
     rm *.tar.gz
@@ -104,7 +104,7 @@ main() {
     apt_packages
     bonnie
     fio_install
-    gen_file_install
+    genfile_install
     kernel_install
     bees_install
     dduper_install

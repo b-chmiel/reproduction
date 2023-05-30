@@ -33,8 +33,8 @@ setup() {
 
 	echo "Generating files for dedup test"
 	mount_btrfs
-	gen_file --size=$GEN_SIZE --type=0 --seed=$SEED $DESTINATION/f1
-	gen_file --size=$GEN_SIZE --type=0 --seed=$SEED $DESTINATION/f2
+	genfile --size=$GEN_SIZE --type=0 --seed=$SEED $DESTINATION/f1
+	genfile --size=$GEN_SIZE --type=0 --seed=$SEED $DESTINATION/f2
 	umount_btrfs
 
 	echo "Saving filesystem size after generation"
