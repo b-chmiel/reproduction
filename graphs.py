@@ -69,7 +69,7 @@ class BarPlot:
         plt.xlabel(self.xlabel, fontsize=16)
         plt.ylabel(self.ylabel, fontsize=16)
         plt.title(self.title, fontsize=16)
-        plt.savefig(out_jpg)
+        plt.savefig(out_jpg, dpi=300)
         plt.savefig(out_svg)
         plt.cla()
 
