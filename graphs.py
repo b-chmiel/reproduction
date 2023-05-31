@@ -12,7 +12,7 @@ import logging
 
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     handlers=[logging.FileHandler("logs/graphs.log"), logging.StreamHandler()],
 )
 
@@ -36,12 +36,14 @@ BUILD_DIR = "./build"
 
 
 class PlotExportType(Enum):
-    SVG = ".svg"
-    JPG = ".jpg"
+    SVG = "svg"
+    JPG = "jpg"
 
 
 class BarPlot:
-    export_type = PlotExportType.JPG
+    out_dir = f"{BUILD_DIR}/graphs"
+    out_dir_jpg = f"{BUILD_DIR}/graphs/{PlotExportType.JPG.value}"
+    out_dir_svg = f"{BUILD_DIR}/graphs/{PlotExportType.SVG.value}"
 
     def __init__(
         self,
@@ -57,22 +59,30 @@ class BarPlot:
         self.xlabel = xlabel
         self.ylabel = ylabel
         self.title = title
-        self.filename = filename + self.export_type.value
+        self.filename = filename
+        create_dir(self.out_dir)
+        create_dir(self.out_dir_jpg)
+        create_dir(self.out_dir_svg)
 
     def plot(self):
-        logging.info(f"Generating BarPlot: {self.filename}")
+        out_jpg = f"{self.out_dir_jpg}/{self.filename}.{PlotExportType.JPG.value}"
+        out_svg = f"{self.out_dir_svg}/{self.filename}.{PlotExportType.SVG.value}"
+
+        logging.info(f"Generating BarPlot: {out_jpg}, {out_svg}")
         plt.bar(np.arange(len(self.y)), self.y, color="blue", edgecolor="black")
         plt.xticks(np.arange(len(self.y)), self.x)
         plt.xlabel(self.xlabel, fontsize=16)
         plt.ylabel(self.ylabel, fontsize=16)
         plt.title(self.title, fontsize=16)
-        plt.savefig(self.filename)
+        plt.savefig(out_jpg)
+        plt.savefig(out_svg)
         plt.cla()
 
 
 class Bonnie:
     output_csv = BUILD_DIR + "/bonnie/bonnie++.csv"
     output_html = BUILD_DIR + "/bonnie/bonnie-graphs.html"
+    output_svg = BUILD_DIR + "/graphs/bonnie-graphs.svg"
     input_file = "out/bonnie/out.csv"
 
     def __init__(self):
@@ -166,8 +176,8 @@ class Bonnie:
             f.write(result)
 
     def __generate_table(self):
-        graphs_html = open(self.output_html, "w+")
-        subprocess.call(["bon_csv2html", self.output_csv], stdout=graphs_html)
+        with open(self.output_html, "w+") as graphs_html:
+            subprocess.call(["bon_csv2html", self.output_csv], stdout=graphs_html)
 
 
 class Df:
@@ -186,11 +196,19 @@ class Df:
         def y(self):
             return (self.after - self.before) / 1000_000  # in gigabytes
 
-    def __init__(self, input_file_before, input_file_after, output_image, title):
+    def __init__(
+        self,
+        input_file_before,
+        input_file_after,
+        output_image,
+        title,
+        exclude_fs: list[FilesystemType] = [],
+    ):
         self.input_file_before = input_file_before
         self.input_file_after = input_file_after
         self.output_image = output_image
         self.title = title
+        self.exclude_fs = exclude_fs
 
         result = self.__parse()
         self.__plot(result, self.title)
@@ -198,6 +216,9 @@ class Df:
     def __parse(self):
         result = []
         for path in FilesystemType:
+            if path in self.exclude_fs:
+                continue
+
             before = 0
             after = 0
             df_line_start = FS_MOUNT_POINTS[path]
@@ -244,6 +265,7 @@ class Fio:
                 if "average" in file:
                     logging.info(f"Processing fio result file: {file}")
                     self.__process(os.path.join(subdir, file))
+                    self.__process_without_dedup(os.path.join(subdir, file))
 
     def __process(self, file_path: str):
         xx = []
@@ -266,10 +288,47 @@ class Fio:
         # ./build/fio/gnuplot/random_read_test_bw.average
         # Match this part     ^--------------^
         test_name = " ".join(file_path.split("/")[-1].split(".")[0].split("_")[:3])
-        title = f"I/O Bandwidth for {test_name} test"
+        title = f"I/O Bandwidth for {test_name}"
         xlabel = "File system"
         ylabel = "Throughput (MB/s)"
-        filename = f"{BUILD_DIR}/{'_'.join(test_name.split(' '))}_average_bandwidth"
+        filename = f"{'_'.join(test_name.split(' '))}_average_bandwidth_all"
+        p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
+        p.plot()
+
+    def __process_without_dedup(self, file_path: str):
+        xx = []
+        yy = []
+        with open(file_path) as f:
+            is_dedup = False
+            for line in f.readlines():
+                splitted_line = line.strip().split(" ")
+                if (
+                    self.__does_list_contain_digit(splitted_line)
+                    and len(splitted_line) == 2
+                ):
+                    if is_dedup:
+                        is_dedup = False
+                        continue
+
+                    throughput = int(splitted_line[1]) / 1000  # in megabytes / s
+                    yy.append(throughput)
+                elif len(splitted_line) == 6:
+                    filesystem_name = splitted_line[5].split("_")[0]
+                    if filesystem_name == FilesystemType.NILFS_DEDUP.value:
+                        is_dedup = True
+                        continue
+                    xx.append(filesystem_name)
+
+        self.__plot_without_dedup(xx, yy, file_path)
+
+    def __plot_without_dedup(self, xx, yy, file_path):
+        # ./build/fio/gnuplot/random_read_test_bw.average
+        # Match this part     ^--------------^
+        test_name = " ".join(file_path.split("/")[-1].split(".")[0].split("_")[:3])
+        title = f"I/O Bandwidth for {test_name}"
+        xlabel = "File system"
+        ylabel = "Throughput (MB/s)"
+        filename = f"{'_'.join(test_name.split(' '))}_average_bandwidth"
         p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
         p.plot()
 
@@ -414,7 +473,7 @@ class DedupDf:
 
 
 def create_dir(dir_name: str):
-    logging.info(f"Creating directory {dir_name}")
+    logging.debug(f"Creating directory {dir_name}")
     Path(dir_name).mkdir(parents=True, exist_ok=True)
 
 
@@ -422,20 +481,40 @@ def bonnie_df():
     logging.info("Generating df graphs for bonnie")
     input_file_before = "out/bonnie/df_before_bonnie.txt"
     input_file_after = "out/bonnie/df_after_bonnie.txt"
-    output_image = BUILD_DIR + "/bonnie_metadata_size"
-    title = "Space occupied by metadata after bonnie++ test"
+    output_image_name = "bonnie_metadata_size"
+    title = "Space occupied after bonnie++ test"
 
-    Df(input_file_before, input_file_after, output_image, title)
+    Df(
+        input_file_before,
+        input_file_after,
+        output_image_name,
+        title,
+        [FilesystemType.NILFS_DEDUP],
+    )
+
+    output_image_name = "bonnie_metadata_size_all"
+
+    Df(input_file_before, input_file_after, output_image_name, title)
 
 
 def delete_df():
     logging.info("Generating df graphs for delete test")
     input_file_before = "out/delete/df_before_delete_test.txt"
     input_file_after = "out/delete/df_after_delete_test.txt"
-    output_image = BUILD_DIR + "/delete_metadata_size"
-    title = "Space occupied by metadata after deletion test"
+    output_image_name = "delete_metadata_size"
+    title = "Space occupied after deletion test"
 
-    Df(input_file_before, input_file_after, output_image, title)
+    Df(
+        input_file_before,
+        input_file_after,
+        output_image_name,
+        title,
+        [FilesystemType.NILFS_DEDUP],
+    )
+
+    output_image_name = "delete_metadata_size_all"
+
+    Df(input_file_before, input_file_after, output_image_name, title)
 
 
 def fio_df():
@@ -444,27 +523,63 @@ def fio_df():
 
     input_file_before = out_dir + "/df_before_fio_file_append_read_test.txt"
     input_file_after = out_dir + "/df_after_fio_file_append_read_test.txt"
-    output_image = BUILD_DIR + "/fio_file_append_read_metadata_size"
-    title = "Space occupied by metadata after fio file append read test"
-    Df(input_file_before, input_file_after, output_image, title)
+    output_image_name = "fio_file_append_read_metadata_size"
+    title = "Space occupied after fio append read test"
+    Df(
+        input_file_before,
+        input_file_after,
+        output_image_name,
+        title,
+        [FilesystemType.NILFS_DEDUP],
+    )
+
+    output_image_name = "fio_file_append_read_metadata_size_all"
+    Df(input_file_before, input_file_after, output_image_name, title)
 
     input_file_before = out_dir + "/df_before_fio_file_append_write_test.txt"
     input_file_after = out_dir + "/df_after_fio_file_append_write_test.txt"
-    output_image = BUILD_DIR + "/fio_file_append_write_metadata_size"
-    title = "Space occupied by metadata after fio file append write test"
-    Df(input_file_before, input_file_after, output_image, title)
+    output_image_name = "fio_file_append_write_metadata_size"
+    title = "Space occupied after fio append write test"
+    Df(
+        input_file_before,
+        input_file_after,
+        output_image_name,
+        title,
+        [FilesystemType.NILFS_DEDUP],
+    )
+
+    output_image_name = "fio_file_append_write_metadata_size_all"
+    Df(input_file_before, input_file_after, output_image_name, title)
 
     input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
     input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
-    output_image = BUILD_DIR + "/fio_random_read_metadata_size"
-    title = "Space occupied by metadata after fio read test"
-    Df(input_file_before, input_file_after, output_image, title)
+    output_image_name = "fio_random_read_metadata_size"
+    title = "Space occupied after fio read test"
+    Df(
+        input_file_before,
+        input_file_after,
+        output_image_name,
+        title,
+        [FilesystemType.NILFS_DEDUP],
+    )
+
+    output_image_name = "fio_random_read_metadata_size_all"
+    Df(input_file_before, input_file_after, output_image_name, title)
 
     input_file_before = out_dir + "/df_before_fio_random_write_test.txt"
     input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
-    output_image = BUILD_DIR + "/fio_random_write_metadata_size"
-    title = "Space occupied by metadata after fio write test"
-    Df(input_file_before, input_file_after, output_image, title)
+    output_image_name = "fio_random_write_metadata_size"
+    title = "Space occupied after fio write test"
+    Df(
+        input_file_before,
+        input_file_after,
+        output_image_name,
+        title,
+        [FilesystemType.NILFS_DEDUP],
+    )
+
+    output_image_name = "fio_random_write_metadata_size_all"
+    Df(input_file_before, input_file_after, output_image_name, title)
 
 
 def main():
@@ -478,29 +593,23 @@ def main():
     fio_df()
     Fio()
     DedupDf(
-        plot_title="Nilfs deduplication ratio for different file sizes",
-        plot_filename=f"{BUILD_DIR}/nilfs_dedup_dedup_ratio",
+        plot_title="Nilfs dedup deduplication ratio for different file sizes",
+        plot_filename="nilfs_dedup_dedup_ratio",
         fs_type=FilesystemType.NILFS_DEDUP,
         tool_name="dedup",
     )
     DedupDf(
         plot_title="Dduper deduplication ratio for different file sizes",
-        plot_filename=f"{BUILD_DIR}/dduper_dedup_ratio",
+        plot_filename="dduper_dedup_ratio",
         fs_type=FilesystemType.BTRFS,
         tool_name="dduper",
     )
     DedupDf(
         plot_title="Duperemove deduplication ratio for different file sizes",
-        plot_filename=f"{BUILD_DIR}/duperemove_dedup_ratio",
+        plot_filename="duperemove_dedup_ratio",
         fs_type=FilesystemType.BTRFS,
         tool_name="duperemove",
     )
-    # DedupDf(
-    #     plot_title="Bees deduplication ratio for different file sizes",
-    #     plot_filename=f"{BUILD_DIR}/bees_dedup_ratio.jpg",
-    #     fs_type=FilesystemType.BTRFS,
-    #     tool_name="bees",
-    # )
     logging.info("END")
 
 
