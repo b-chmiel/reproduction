@@ -366,29 +366,42 @@ class DfSize:
 class DedupDf:
     def __init__(
         self,
-        plot_title: str,
-        plot_filename: str,
         fs_type: FilesystemType,
         tool_name: str,
+        display_tool_name: str,
     ):
         logging.info("Generating df graphs from dedup tests")
-        self.plot_title = plot_title
-        self.plot_filename = plot_filename
         self.files: list[self.DedupDfFile] = []
         self.tool_name = tool_name
+        self.display_tool_name = display_tool_name
 
         self.out_dir = f"fs/{fs_type.value}/out/dedup"
         for _, _, files in os.walk(self.out_dir):
             for file in files:
                 if tool_name in file:
                     self.files.append(self.DedupDfFile(self.out_dir, file, fs_type))
-        self.__process_files()
+        self.__generate_graphs_dedup_ratio()
+        self.__generate_graphs_data_reduction()
 
-    def sort_by_size_without_postfix(self, key):
-        size = key[0]
-        return int(size[:-1])
+    def __generate_graphs_dedup_ratio(self):
+        title = f"{self.display_tool_name} deduplication ratio"
+        filename = f"{self.tool_name}_dedup_ratio"
+        xlabel = "File size"
+        ylabel = "Deduplication ratio"
+        self.__generate_graphs(
+            title, filename, xlabel, ylabel, self.__calculate_deduplication_ratio
+        )
 
-    def __process_files(self):
+    def __generate_graphs_data_reduction(self):
+        title = f"{self.display_tool_name} data reduction"
+        filename = f"{self.tool_name}_data_reduction"
+        xlabel = "File size"
+        ylabel = "Data reduction ratio"
+        self.__generate_graphs(
+            title, filename, xlabel, ylabel, self.__calculate_data_reduction
+        )
+
+    def __generate_graphs(self, title, filename, xlabel, ylabel, y_func):
         logging.debug("Processing files for dedup tests")
         file_sizes = self.__classify_by_file_size()
         ordered_sizes = OrderedDict(
@@ -400,21 +413,18 @@ class DedupDf:
         xx = []
         yy = []
         for entry in ordered_sizes:
-            x, y = self.__xy_for_file_size(entry, ordered_sizes)
+            x, y = self.__xy_for_file_size(entry, ordered_sizes, y_func)
             xx.append(x)
             yy.append(y)
 
-        p = BarPlot(
-            xx,
-            yy,
-            "File size",
-            "Deduplication ratio",
-            self.plot_title,
-            self.plot_filename,
-        )
+        p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
         p.plot()
 
-    def __xy_for_file_size(self, key, sizes):
+    def sort_by_size_without_postfix(self, key):
+        size = key[0]
+        return int(size[:-1])
+
+    def __xy_for_file_size(self, key, sizes, y_func):
         x = key
 
         if len(sizes[key]) != 2:
@@ -434,7 +444,7 @@ class DedupDf:
         before, after = sizes[key]
         if before.type == DedupDf.DedupDfFileType.AFTER:
             before, after = after, before
-        y = self.__deduplication_ratio(before.df_size.size, after.df_size.size)
+        y = y_func(before.df_size.size, after.df_size.size)
         return x, y
 
     def __classify_by_file_size(self):
@@ -446,8 +456,11 @@ class DedupDf:
                 file_sizes[file.file_size] = [file]
         return file_sizes
 
-    def __deduplication_ratio(self, before, after):
+    def __calculate_deduplication_ratio(self, before, after):
         return before / after
+
+    def __calculate_data_reduction(self, before, after):
+        return 1 - after / before
 
     class DedupDfFileType(Enum):
         BEFORE = "before"
@@ -612,22 +625,17 @@ def main():
     fio_df()
     Fio()
     DedupDf(
-        plot_title="Nilfs dedup deduplication ratio for different file sizes",
-        plot_filename="nilfs_dedup_dedup_ratio",
         fs_type=FilesystemType.NILFS_DEDUP,
         tool_name="dedup",
+        display_tool_name="Nilfs dedup",
     )
     DedupDf(
-        plot_title="Dduper deduplication ratio for different file sizes",
-        plot_filename="dduper_dedup_ratio",
-        fs_type=FilesystemType.BTRFS,
-        tool_name="dduper",
+        fs_type=FilesystemType.BTRFS, tool_name="dduper", display_tool_name="dduper"
     )
     DedupDf(
-        plot_title="Duperemove deduplication ratio for different file sizes",
-        plot_filename="duperemove_dedup_ratio",
         fs_type=FilesystemType.BTRFS,
         tool_name="duperemove",
+        display_tool_name="duperemove",
     )
     logging.info("END")
 
