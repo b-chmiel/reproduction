@@ -48,9 +48,9 @@ genfile_install() {
 }
 
 kernel_install() {
-    RELEASE=nilfsdedup-f08aabf
-    KERNEL_IMAGE=linux-image-6.1.0-32b0e7d60_6.1.0-l_amd64.deb
-    KERNEL_HEADERS=linux-headers-6.1.0-32b0e7d60_6.1.0-l_amd64.deb
+    RELEASE=nilfsdedup-8f6ebbb
+    KERNEL_IMAGE=linux-image-6.1.0-4abe4d8eb_6.1.0-l_amd64.deb 
+    KERNEL_HEADERS=linux-headers-6.1.0-4abe4d8eb_6.1.0-l_amd64.deb 
     KERNEL_LIBC=linux-libc-dev_6.1.0-l_amd64.deb
 
     wget https://github.com/bachm44/nilfs-dedup/releases/download/$RELEASE/$KERNEL_IMAGE
