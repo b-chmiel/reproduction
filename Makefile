@@ -14,6 +14,6 @@ test: env
 	. env/bin/activate && bash test.sh
 
 clean:
-	-rm -r build/
+	-rm -r output/
 	-rm -r logs/
 	-find . -path "*/out/*" -delete

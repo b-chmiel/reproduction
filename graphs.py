@@ -11,12 +11,6 @@ from collections import OrderedDict
 import logging
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[logging.FileHandler("logs/graphs.log"), logging.StreamHandler()],
-)
-
-
 class FilesystemType(Enum):
     BTRFS = "btrfs"
     COPYFS = "copyfs"
@@ -32,7 +26,10 @@ FS_MOUNT_POINTS = {
     FilesystemType.NILFS_DEDUP: "/dev/loop0",
     FilesystemType.WAYBACKFS: "/dev/sda1",
 }
-BUILD_DIR = "./build"
+
+OUTPUT_DIR = "./output"
+GRAPHS_OUTPUT_DIR = OUTPUT_DIR + "/graphs"
+BONNIE_OUTPUT_DIR = OUTPUT_DIR + "/bonnie"
 
 
 class PlotExportType(Enum):
@@ -41,9 +38,8 @@ class PlotExportType(Enum):
 
 
 class BarPlot:
-    out_dir = f"{BUILD_DIR}/graphs"
-    out_dir_jpg = f"{BUILD_DIR}/graphs/{PlotExportType.JPG.value}"
-    out_dir_svg = f"{BUILD_DIR}/graphs/{PlotExportType.SVG.value}"
+    out_dir_jpg = f"{GRAPHS_OUTPUT_DIR}/{PlotExportType.JPG.value}"
+    out_dir_svg = f"{GRAPHS_OUTPUT_DIR}/{PlotExportType.SVG.value}"
 
     def __init__(
         self,
@@ -60,7 +56,6 @@ class BarPlot:
         self.ylabel = ylabel
         self.title = title
         self.filename = filename
-        create_dir(self.out_dir)
         create_dir(self.out_dir_jpg)
         create_dir(self.out_dir_svg)
 
@@ -80,22 +75,31 @@ class BarPlot:
 
 
 class Bonnie:
-    output_csv = BUILD_DIR + "/bonnie/bonnie++.csv"
-    output_html = BUILD_DIR + "/bonnie/bonnie-graphs.html"
-    output_svg = BUILD_DIR + "/graphs/bonnie-graphs.svg"
+    output_csv = BONNIE_OUTPUT_DIR + "/bonnie++.csv"
+    output_csv_all = BONNIE_OUTPUT_DIR + "/bonnie++_all.csv"
+    output_html = GRAPHS_OUTPUT_DIR + "/bonnie-graphs.html"
+    output_html_all = GRAPHS_OUTPUT_DIR + "/bonnie-graphs_all.html"
+
     input_file = "out/bonnie/out.csv"
 
     def __init__(self):
         logging.info(
             f"Initializing bonnie graphing with input {self.input_file} and output {self.output_csv}, {self.output_html}"
         )
-        result = self.__parse()
-        self.__save(result)
-        self.__generate_table()
+        result_all = self.__parse()
+        self.__save(result_all, self.output_csv_all)
+        self.__generate_table(self.output_html_all, self.output_csv_all)
 
-    def __parse(self):
+        result = self.__parse([FilesystemType.NILFS_DEDUP])
+        self.__save(result, self.output_csv)
+        self.__generate_table(self.output_html, self.output_csv)
+
+    def __parse(self, exclude: list[FilesystemType] = []):
         result = ""
         for path in FilesystemType:
+            if path in exclude:
+                continue
+
             with open(f"fs/{path.value}/{self.input_file}") as f:
                 bonnie_output = ""
                 while line := f.readline().rstrip():
@@ -171,13 +175,13 @@ class Bonnie:
             else:
                 count[i] = float(count[i]) / len_rows
 
-    def __save(self, result):
-        with open(self.output_csv, "w") as f:
+    def __save(self, result, filename):
+        with open(filename, "w") as f:
             f.write(result)
 
-    def __generate_table(self):
-        with open(self.output_html, "w+") as graphs_html:
-            subprocess.call(["bon_csv2html", self.output_csv], stdout=graphs_html)
+    def __generate_table(self, filename, output_csv):
+        with open(filename, "w+") as graphs_html:
+            subprocess.call(["bon_csv2html", output_csv], stdout=graphs_html)
 
 
 class Df:
@@ -256,7 +260,7 @@ class Df:
 
 
 class Fio:
-    data_dir = BUILD_DIR + "/fio/gnuplot"
+    data_dir = OUTPUT_DIR + "/fio/gnuplot"
 
     def __init__(self):
         logging.info(f"Generating fio graphs from data dir {self.data_dir}")
@@ -582,11 +586,26 @@ def fio_df():
     Df(input_file_before, input_file_after, output_image_name, title)
 
 
+def configure_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[logging.FileHandler("logs/graphs.log"), logging.StreamHandler()],
+    )
+
+
+def create_output_dirs():
+    create_dir(OUTPUT_DIR)
+    create_dir(GRAPHS_OUTPUT_DIR)
+    create_dir(BONNIE_OUTPUT_DIR)
+
+
 def main():
+    configure_logging()
+
     logging.info("START")
 
-    create_dir(BUILD_DIR)
-    create_dir(BUILD_DIR + "/bonnie")
+    create_output_dirs()
+
     Bonnie()
     bonnie_df()
     delete_df()
