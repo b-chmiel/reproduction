@@ -6,8 +6,11 @@ source /tests/test_env.sh
 
 mount_nilfs() {
 	echo "Mounting nilfs at $DESTINATION"
-	rm -f $FILESYSTEM_FILE
-	fallocate -l $FILESYSTEM_FILE_SIZE $FILESYSTEM_FILE
+	rm -fv $FILESYSTEM_FILE
+
+	sync
+
+	fallocate --verbose -l $FILESYSTEM_FILE_SIZE $FILESYSTEM_FILE
 	mkfs -t nilfs2 $FILESYSTEM_FILE
 	mkdir -p $DESTINATION
 	mount -i -v -t nilfs2 $FILESYSTEM_FILE $DESTINATION
@@ -59,7 +62,9 @@ dedup_test() {
 	DIR=$OUTPUT_DIRECTORY/dedup
 	GEN_SIZE=$1
 
-	echo "Deduplication test with output directory $DIR and gen_size $GEN_SIZE"
+	echo "################################################################################"
+	echo "### Deduplication test with output directory $DIR and gen_size $GEN_SIZE"
+	echo "################################################################################"
 
 	mkdir -pv $DIR
 
@@ -87,12 +92,20 @@ dedup_test() {
 	umount_nilfs
 
 	rm -fv $FILESYSTEM_FILE
+	sync
 }
 
 main() {
+	echo "################################################################################"
+	echo "################################################################################"
+	echo "### TEST_NILFS_DEDUP"
+	echo "################################################################################"
+	echo "################################################################################"
+	echo ""
+
 	mkdir -pv $OUTPUT_DIRECTORY
 
-	for i in {2..6}
+	for i in {1..10}
 	do
 		size=$((2**$i))
 		size_str="${size}M"

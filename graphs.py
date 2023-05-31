@@ -8,6 +8,13 @@ import subprocess
 import os
 from numbers import Number
 from collections import OrderedDict
+import logging
+
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    handlers=[logging.FileHandler("logs/graphs.log"), logging.StreamHandler()],
+)
 
 
 class FilesystemType(Enum):
@@ -28,7 +35,14 @@ FS_MOUNT_POINTS = {
 BUILD_DIR = "./build"
 
 
-class Plot:
+class PlotExportType(Enum):
+    SVG = ".svg"
+    JPG = ".jpg"
+
+
+class BarPlot:
+    export_type = PlotExportType.JPG
+
     def __init__(
         self,
         x: list[str],
@@ -43,9 +57,10 @@ class Plot:
         self.xlabel = xlabel
         self.ylabel = ylabel
         self.title = title
-        self.filename = filename
+        self.filename = filename + self.export_type.value
 
     def plot(self):
+        logging.info(f"Generating BarPlot: {self.filename}")
         plt.bar(np.arange(len(self.y)), self.y, color="blue", edgecolor="black")
         plt.xticks(np.arange(len(self.y)), self.x)
         plt.xlabel(self.xlabel, fontsize=16)
@@ -61,6 +76,9 @@ class Bonnie:
     input_file = "out/bonnie/out.csv"
 
     def __init__(self):
+        logging.info(
+            f"Initializing bonnie graphing with input {self.input_file} and output {self.output_csv}, {self.output_html}"
+        )
         result = self.__parse()
         self.__save(result)
         self.__generate_table()
@@ -97,7 +115,6 @@ class Bonnie:
         return ",".join(splitted)
 
     def __merge_rows_into_average(self, rows):
-        result = ""
         count = {}
         len_rows = 0
         for row in rows.split("\n"):
@@ -193,7 +210,7 @@ class Df:
                 result.append(self.__DfResult(before, after, path.value))
 
             except FileNotFoundError:
-                print(f"Cannot read df file for '{path}'. Skipping")
+                logging.warning(f"Cannot read df file for '{path.value}'. Skipping")
 
         return result
 
@@ -213,7 +230,7 @@ class Df:
         ylabel = "Space used (GB)"
         filename = self.output_image
 
-        p = Plot(x, y, xlabel, ylabel, title, filename)
+        p = BarPlot(x, y, xlabel, ylabel, title, filename)
         p.plot()
 
 
@@ -221,10 +238,11 @@ class Fio:
     data_dir = BUILD_DIR + "/fio/gnuplot"
 
     def __init__(self):
+        logging.info(f"Generating fio graphs from data dir {self.data_dir}")
         for subdir, dirs, files in os.walk(self.data_dir):
             for file in files:
                 if "average" in file:
-                    print("Processing: ", file)
+                    logging.info(f"Processing fio result file: {file}")
                     self.__process(os.path.join(subdir, file))
 
     def __process(self, file_path: str):
@@ -246,14 +264,13 @@ class Fio:
 
     def __plot(self, xx, yy, file_path):
         # ./build/fio/gnuplot/random_read_test_bw.average
-        # Match this part    ^--------------^
+        # Match this part     ^--------------^
         test_name = " ".join(file_path.split("/")[-1].split(".")[0].split("_")[:3])
         title = f"I/O Bandwidth for {test_name} test"
         xlabel = "File system"
         ylabel = "Throughput (MB/s)"
         filename = f"{BUILD_DIR}/{'_'.join(test_name.split(' '))}_average_bandwidth"
-        # self.__plot(xx, yy, title, xlabel, ylabel, filename)
-        p = Plot(xx, yy, xlabel, ylabel, title, filename)
+        p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
         p.plot()
 
     def __does_list_contain_digit(self, list):
@@ -279,6 +296,9 @@ class DfSize:
     def __extract_size(self, line):
         return int(line[2])
 
+    def __repr__(self):
+        return f"""DfSize: {{filepath = {self.filepath}, filesystem = {self.filesystem}, size = {self.size}}}"""
+
 
 class DedupDf:
     def __init__(
@@ -288,6 +308,7 @@ class DedupDf:
         fs_type: FilesystemType,
         tool_name: str,
     ):
+        logging.info("Generating df graphs from dedup tests")
         self.plot_title = plot_title
         self.plot_filename = plot_filename
         self.files: list[self.DedupDfFile] = []
@@ -305,21 +326,24 @@ class DedupDf:
         return int(size[:-1])
 
     def __process_files(self):
+        logging.debug("Processing files for dedup tests")
         file_sizes = self.__classify_by_file_size()
         ordered_sizes = OrderedDict(
             sorted(file_sizes.items(), key=self.sort_by_size_without_postfix)
         )
+        logging.debug(f"Gathered file_sizes: {file_sizes}")
+        logging.debug(f"Gathered ordered_sizes: {ordered_sizes}")
 
-        x = []
-        y = []
+        xx = []
+        yy = []
         for entry in ordered_sizes:
-            xx, yy = self.__xy_for_file_size(entry, ordered_sizes)
-            x.append(xx)
-            y.append(yy)
+            x, y = self.__xy_for_file_size(entry, ordered_sizes)
+            xx.append(x)
+            yy.append(y)
 
-        p = Plot(
-            x,
-            y,
+        p = BarPlot(
+            xx,
+            yy,
             "File size",
             "Deduplication ratio",
             self.plot_title,
@@ -329,6 +353,21 @@ class DedupDf:
 
     def __xy_for_file_size(self, key, sizes):
         x = key
+
+        if len(sizes[key]) != 2:
+            if len(sizes[key]) > 2:
+                logging.warning("Multiple df files for the same test are not supported")
+            elif len(sizes[key]) < 2:
+                if sizes[key][0].type == DedupDf.DedupDfFileType.BEFORE:
+                    logging.warning(
+                        f"Missing df after file, only before file is present: {sizes[key][0]}"
+                    )
+                else:
+                    logging.warning(
+                        f"Missing df before file, only after file is present: {sizes[key][0]}"
+                    )
+            return 0, 0
+
         before, after = sizes[key]
         if before.type == DedupDf.DedupDfFileType.AFTER:
             before, after = after, before
@@ -370,58 +409,67 @@ class DedupDf:
             filepath = f"{out_dir}/{self.filename}"
             self.df_size = DfSize(filepath, fs_type)
 
+        def __repr__(self):
+            return f"""DedupDfFile: {{filename = {self.filename}, prog_name = {self.prog_name}, file_size = {self.file_size}, df_size = {{{self.df_size}}}}}"""
+
 
 def create_dir(dir_name: str):
+    logging.info(f"Creating directory {dir_name}")
     Path(dir_name).mkdir(parents=True, exist_ok=True)
 
 
 def bonnie_df():
+    logging.info("Generating df graphs for bonnie")
     input_file_before = "out/bonnie/df_before_bonnie.txt"
     input_file_after = "out/bonnie/df_after_bonnie.txt"
-    output_image = BUILD_DIR + "/bonnie_metadata_size.jpg"
+    output_image = BUILD_DIR + "/bonnie_metadata_size"
     title = "Space occupied by metadata after bonnie++ test"
 
     Df(input_file_before, input_file_after, output_image, title)
 
 
 def delete_df():
+    logging.info("Generating df graphs for delete test")
     input_file_before = "out/delete/df_before_delete_test.txt"
     input_file_after = "out/delete/df_after_delete_test.txt"
-    output_image = BUILD_DIR + "/delete_metadata_size.jpg"
+    output_image = BUILD_DIR + "/delete_metadata_size"
     title = "Space occupied by metadata after deletion test"
 
     Df(input_file_before, input_file_after, output_image, title)
 
 
 def fio_df():
+    logging.info("Generating df graphs for fio tests")
     out_dir = "out/fio"
 
     input_file_before = out_dir + "/df_before_fio_file_append_read_test.txt"
     input_file_after = out_dir + "/df_after_fio_file_append_read_test.txt"
-    output_image = BUILD_DIR + "/fio_file_append_read_metadata_size.jpg"
+    output_image = BUILD_DIR + "/fio_file_append_read_metadata_size"
     title = "Space occupied by metadata after fio file append read test"
     Df(input_file_before, input_file_after, output_image, title)
 
     input_file_before = out_dir + "/df_before_fio_file_append_write_test.txt"
     input_file_after = out_dir + "/df_after_fio_file_append_write_test.txt"
-    output_image = BUILD_DIR + "/fio_file_append_write_metadata_size.jpg"
+    output_image = BUILD_DIR + "/fio_file_append_write_metadata_size"
     title = "Space occupied by metadata after fio file append write test"
     Df(input_file_before, input_file_after, output_image, title)
 
     input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
     input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
-    output_image = BUILD_DIR + "/fio_random_read_metadata_size.jpg"
+    output_image = BUILD_DIR + "/fio_random_read_metadata_size"
     title = "Space occupied by metadata after fio read test"
     Df(input_file_before, input_file_after, output_image, title)
 
     input_file_before = out_dir + "/df_before_fio_random_write_test.txt"
     input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
-    output_image = BUILD_DIR + "/fio_random_write_metadata_size.jpg"
+    output_image = BUILD_DIR + "/fio_random_write_metadata_size"
     title = "Space occupied by metadata after fio write test"
     Df(input_file_before, input_file_after, output_image, title)
 
 
 def main():
+    logging.info("START")
+
     create_dir(BUILD_DIR)
     create_dir(BUILD_DIR + "/bonnie")
     Bonnie()
@@ -431,19 +479,19 @@ def main():
     Fio()
     DedupDf(
         plot_title="Nilfs deduplication ratio for different file sizes",
-        plot_filename=f"{BUILD_DIR}/nilfs_dedup_dedup_ratio.jpg",
+        plot_filename=f"{BUILD_DIR}/nilfs_dedup_dedup_ratio",
         fs_type=FilesystemType.NILFS_DEDUP,
         tool_name="dedup",
     )
     DedupDf(
         plot_title="Dduper deduplication ratio for different file sizes",
-        plot_filename=f"{BUILD_DIR}/dduper_dedup_ratio.jpg",
+        plot_filename=f"{BUILD_DIR}/dduper_dedup_ratio",
         fs_type=FilesystemType.BTRFS,
         tool_name="dduper",
     )
     DedupDf(
         plot_title="Duperemove deduplication ratio for different file sizes",
-        plot_filename=f"{BUILD_DIR}/duperemove_dedup_ratio.jpg",
+        plot_filename=f"{BUILD_DIR}/duperemove_dedup_ratio",
         fs_type=FilesystemType.BTRFS,
         tool_name="duperemove",
     )
@@ -453,6 +501,7 @@ def main():
     #     fs_type=FilesystemType.BTRFS,
     #     tool_name="bees",
     # )
+    logging.info("END")
 
 
 if __name__ == "__main__":

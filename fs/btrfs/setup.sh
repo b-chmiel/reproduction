@@ -5,7 +5,7 @@ IFS=$'\n\t'
 
 source /tests/test_env.sh
 
-fallocate -l $FILESYSTEM_FILE_SIZE $FILESYSTEM_FILE
+fallocate --verbose -l $FILESYSTEM_FILE_SIZE $FILESYSTEM_FILE
 modprobe btrfs
 mkfs.btrfs $FILESYSTEM_FILE
 mkdir -p $DESTINATION

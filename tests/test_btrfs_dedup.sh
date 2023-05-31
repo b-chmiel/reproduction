@@ -6,7 +6,11 @@ source /tests/test_env.sh
 
 mount_btrfs() {
 	rm -fv $FILESYSTEM_FILE
-	fallocate -v -l $FILESYSTEM_FILE_SIZE $FILESYSTEM_FILE
+
+	# commit file removal
+	sync
+
+	fallocate --verbose -l $FILESYSTEM_FILE_SIZE $FILESYSTEM_FILE
 	modprobe btrfs
 	mkfs.btrfs -f $FILESYSTEM_FILE
 	mkdir -pv $DESTINATION
@@ -58,22 +62,32 @@ teardown() {
 
 duperemove_test() {
 	GEN_SIZE=$1
+	TOOL_NAME=duperemove
 
-	setup duperemove $GEN_SIZE
+	echo "################################################################################"
+	echo "### Deduplication $TOOL_NAME test and gen_size $GEN_SIZE"
+	echo "################################################################################"
+
+	setup $TOOL_NAME $GEN_SIZE
 	duperemove -dhrv $DESTINATION/
-	teardown duperemove $GEN_SIZE
+	teardown $TOOL_NAME $GEN_SIZE
 }
 
 dduper_test() {
 	GEN_SIZE=$1
+	TOOL_NAME=dduper
 
-	setup dduper $GEN_SIZE
+	echo "################################################################################"
+	echo "### Deduplication $TOOL_NAME test and gen_size $GEN_SIZE"
+	echo "################################################################################"
+
+	setup $TOOL_NAME $GEN_SIZE
 	dduper \
 		--device $LOOP_INTERFACE \
 		--dir $DESTINATION/ \
 		--recurse \
 		--chunk-size 4096
-	teardown dduper $GEN_SIZE
+	teardown $TOOL_NAME $GEN_SIZE
 }
 
 bees_test() {
@@ -97,9 +111,16 @@ bees_test() {
 }
 
 main() {
+	echo "################################################################################"
+	echo "################################################################################"
+	echo "### TEST_BTRFS_DEDUP"
+	echo "################################################################################"
+	echo "################################################################################"
+	echo ""
+
 	mkdir -pv $OUTPUT_DIRECTORY
 
-	for i in {2..6}
+	for i in {1..10}
 	do
 		size=$((2**$i))
 		size_str="${size}M"
