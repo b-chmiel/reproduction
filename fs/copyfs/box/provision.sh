@@ -41,18 +41,11 @@ fio_install() {
 }
 
 genfile_install() {
-    GEN_FILE_VERSION=1.0.5-dev-aa8ab56514bd6b4bf7ac5669b620c53b604fcf82
-    DIR=./genfile_install
+    GENFILE_VERSION=1.0.5-dev-09dfc220ea449a02f71f59dfd803e676a2db7905
+    GENFILE=genfile.deb
 
-    wget https://github.com/bachm44/genfile/releases/download/$GEN_FILE_VERSION/genfile-$GEN_FILE_VERSION.tar.gz
-    mkdir -pv $DIR
-    tar -xf *.tar.gz -C $DIR --strip-components=1
-    rm *.tar.gz
-    pushd $DIR
-        ./configure
-        make
-        make install
-    popd
+    wget https://github.com/bachm44/genfile/releases/download/$GENFILE_VERSION/genfile.deb
+    dpkg -i $GENFILE
 }
 
 kernel_install() {
