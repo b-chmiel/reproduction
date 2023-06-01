@@ -1,48 +1,10 @@
 #!/bin/bash
 
 set -euo pipefail
+set -x
 
 source /tests/test_env.sh
-
-mount_nilfs() {
-	echo "Mounting nilfs at $DESTINATION"
-	rm -fv $FILESYSTEM_FILE
-
-	sync
-
-	fallocate --verbose -l $FILESYSTEM_FILE_SIZE $FILESYSTEM_FILE
-	mkfs -t nilfs2 $FILESYSTEM_FILE
-	mkdir -p $DESTINATION
-	mount -i -v -t nilfs2 $FILESYSTEM_FILE $DESTINATION
-	nilfs-tune -i 1 $LOOP_INTERFACE
-}
-
-remount_nilfs() {
-	echo "Remounting nilfs to $DESTINATION"
-	mount -i -v -t nilfs2 $FILESYSTEM_FILE $DESTINATION
-}
-
-umount_nilfs() {
-	echo "Unmounting nilfs from $DESTINATION"
-busy=true
-while $busy
-do
- if mountpoint -q $DESTINATION
- then
-  umount $DESTINATION 2> /dev/null
-  if [ $? -eq 0 ]
-  then
-   busy=false  # umount successful
-  else
-   echo '.'  # output to show that the script is alive
-   sleep 5      # 5 seconds for testing, modify to 300 seconds later on
-  fi
- else
-  busy=false  # not mounted
- fi
-done
-	echo "Unmount completed"
-}
+source /vagrant/fs_utils.sh
 
 run_gc_cleanup() {
 	echo "Running gc cleanup"
@@ -68,31 +30,23 @@ dedup_test() {
 
 	mkdir -pv $DIR
 
-	umount_nilfs || true
-
 	echo "Generating files for dedup test"
-	mount_nilfs
+	mount_fs
 	genfile --size=$GEN_SIZE --type=0 --seed=$SEED $DESTINATION/f1
 	genfile --size=$GEN_SIZE --type=0 --seed=$SEED $DESTINATION/f2
-	umount_nilfs
 
 	echo "Saving filesystem size after generation"
-	remount_nilfs
+	remount_fs
 	df > $DIR/df_before_deduplication_dedup_$GEN_SIZE.txt
 	dedup -v $LOOP_INTERFACE
-	umount_nilfs
 
-	remount_nilfs
+	remount_fs
 	run_gc_cleanup
-	umount_nilfs
 
 	echo "Saving filesystem size after deduplication"
-	remount_nilfs
+	remount_fs
 	df > $DIR/df_after_deduplication_dedup_$GEN_SIZE.txt
-	umount_nilfs
-
-	rm -fv $FILESYSTEM_FILE
-	sync
+	destroy_fs
 }
 
 main() {
@@ -105,8 +59,7 @@ main() {
 
 	mkdir -pv $OUTPUT_DIRECTORY
 
-	for i in {1..10}
-	do
+	for i in $(seq 1 $DEDUP_TEST_RANGE_END); do
 		size=$((2**$i))
 		size_str="${size}M"
 		dedup_test $size_str

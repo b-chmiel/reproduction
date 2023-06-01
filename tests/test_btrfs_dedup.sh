@@ -1,30 +1,10 @@
 #!/bin/bash
 
 set -euo pipefail
+set -x
 
 source /tests/test_env.sh
-
-mount_btrfs() {
-	rm -fv $FILESYSTEM_FILE
-
-	# commit file removal
-	sync
-
-	fallocate --verbose -l $FILESYSTEM_FILE_SIZE $FILESYSTEM_FILE
-	modprobe btrfs
-	mkfs.btrfs -f $FILESYSTEM_FILE
-	mkdir -pv $DESTINATION
-	mount $FILESYSTEM_FILE $DESTINATION
-}
-
-remount_btrfs() {
-	mkdir -pv $DESTINATION
-	mount $FILESYSTEM_FILE $DESTINATION
-}
-
-umount_btrfs() {
-	umount $DESTINATION
-}
+source /vagrant/fs_utils.sh
 
 setup() {
 	DIR=$OUTPUT_DIRECTORY/dedup
@@ -36,13 +16,12 @@ setup() {
 	mkdir -pv $DIR
 
 	echo "Generating files for dedup test"
-	mount_btrfs
+	mount_fs
 	genfile --size=$GEN_SIZE --type=0 --seed=$SEED $DESTINATION/f1
 	genfile --size=$GEN_SIZE --type=0 --seed=$SEED $DESTINATION/f2
-	umount_btrfs
 
 	echo "Saving filesystem size after generation"
-	remount_btrfs
+	remount_fs
 	df > "$DIR/df_before_deduplication_${TOOL_NAME}_${GEN_SIZE}.txt"
 }
 
@@ -50,14 +29,10 @@ teardown() {
 	TOOL_NAME=$1
 	GEN_SIZE=$2
 
-	umount_btrfs
-
 	echo "Saving filesystem size after deduplication"
-	remount_btrfs
+	remount_fs
 	df > "$DIR/df_after_deduplication_${TOOL_NAME}_${GEN_SIZE}.txt"
-	umount_btrfs
-
-	rm -fv $FILESYSTEM_FILE
+	destroy_fs
 }
 
 duperemove_test() {
@@ -120,8 +95,7 @@ main() {
 
 	mkdir -pv $OUTPUT_DIRECTORY
 
-	for i in {1..10}
-	do
+	for i in $(seq 1 $DEDUP_TEST_RANGE_END); do
 		size=$((2**$i))
 		size_str="${size}M"
 		duperemove_test $size_str

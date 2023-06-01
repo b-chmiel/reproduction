@@ -35,10 +35,10 @@ export -f benchmark
 copy_fio_logs() {
 	fs_name=$@
 	log "Copy logs for ${fs_name}"
-	mkdir -pv build/fio/logs
+	mkdir -pv output/fio/logs
 
 	pushd fs/$fs_name/out/fio
-		for i in *.log ; do cp $i "../../../../build/fio/logs/${fs_name}_${i}" ; done
+		for i in *.log ; do cp $i "../../../../output/fio/logs/${fs_name}_${i}" ; done
 	popd
 }
 
@@ -47,7 +47,7 @@ export -f copy_fio_logs
 generate_gnuplot() {
 	fio_test=$@
 	log "Generate gnuplot for ${fio_test}"
-	pushd build/fio/logs
+	pushd output/fio/logs
 		rm -rfv ../gnuplot/$fio_test
 		mkdir -pv ../gnuplot/$fio_test
 		fio2gnuplot -t $fio_test -d ../gnuplot/$fio_test -p "*${fio_test}_bw*.log" -v

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -euo pipefail
+set -x
 
 if [[ $# -eq 0 ]] ; then
     echo 'Test template need fs_name argument'
@@ -10,19 +11,23 @@ fi
 FS_NAME=$1
 
 source /tests/test_env.sh
+source /vagrant/fs_utils.sh
 
 bonnie_test() {
     DIR=$OUTPUT_DIRECTORY/bonnie
 
 	echo "################################################################################"
-	echo "### Bonnie++ test for args $BONNIE_ARGS and output directory $DIR"
+	echo "### Bonnie++ test for args ${BONNIE_ARGS[@]} and output directory $DIR"
 	echo "################################################################################"
 
     mkdir -pv $DIR
 
+    mount_fs
     df >> $DIR/df_before_bonnie.txt
-    bonnie++ $BONNIE_ARGS -m $FS_NAME >> $DIR/out.csv
+    bonnie++ "${BONNIE_ARGS[@]}" -m $FS_NAME >> $DIR/out.csv
+    remount_fs
     df >> $DIR/df_after_bonnie.txt
+    destroy_fs
 }
 
 fio_test() {
@@ -35,53 +40,70 @@ fio_test() {
 
     mkdir -pv $DIR
 
-    cp -v /tests/fio-job.cfg $DESTINATION/
+    mount_fs
+    df >> $DIR/df_before_fio_file_append_read_test.txt
     pushd $DESTINATION
-        df >> $DIR/df_before_fio_file_append_read_test.txt
-        fio $CFG_FILE --section file_append_read_test
-        df >> $DIR/df_after_fio_file_append_read_test.txt
-
-        df >> $DIR/df_before_fio_file_append_write_test.txt
-        fio $CFG_FILE --section file_append_write_test
-        df >> $DIR/df_after_fio_file_append_write_test.txt
-
-        df >> $DIR/df_before_fio_random_read_test.txt
-        fio $CFG_FILE --section random_read_test
-        df >> $DIR/df_after_fio_random_read_test.txt
-
-        df >> $DIR/df_before_fio_random_write_test.txt
-        fio $CFG_FILE --section random_write_test
-        df >> $DIR/df_after_fio_random_write_test.txt
-
+        fio /tests/$CFG_FILE --section file_append_read_test
         mv *.log $DIR/
     popd
+    remount_fs
+    df >> $DIR/df_after_fio_file_append_read_test.txt
+    destroy_fs
+
+    mount_fs
+    df >> $DIR/df_before_fio_file_append_write_test.txt
+    pushd $DESTINATION
+        fio /tests/$CFG_FILE --section file_append_write_test
+        mv *.log $DIR/
+    popd
+    remount_fs
+    df >> $DIR/df_after_fio_file_append_write_test.txt
+    destroy_fs
+
+    mount_fs
+    df >> $DIR/df_before_fio_random_read_test.txt
+    pushd $DESTINATION
+        fio /tests/$CFG_FILE --section random_read_test
+        mv *.log $DIR/
+    popd
+    remount_fs
+    df >> $DIR/df_after_fio_random_read_test.txt
+    destroy_fs
+
+    mount_fs
+    df >> $DIR/df_before_fio_random_write_test.txt
+    pushd $DESTINATION
+        fio /tests/$CFG_FILE --section random_write_test
+        mv *.log $DIR/
+    popd
+    remount_fs
+    df >> $DIR/df_after_fio_random_write_test.txt
+    destroy_fs
 }
 
 delete_test() {
-    TRIALS=2
-    TEST_FILE=delete_test_file
-    GEN_SIZE=1G
+    TEST_FILE=$DESTINATION/delete_test_file
     DIR=$OUTPUT_DIRECTORY/delete
 
 	echo "################################################################################"
-	echo "### Delete test with trials $TRIALS, output $DIR and gen_size $GEN_SIZE"
+	echo "### Delete test with trials $DELETION_TEST_TRIALS, output $DIR and gen_size $FILE_SIZE"
 	echo "################################################################################"
 
     mkdir -pv $DIR
 
+    mount_fs
     df >> $DIR/df_before_delete_test.txt
-    pushd $DESTINATION
 	counter=1
-	while [ $counter -le ${TRIALS} ]
+	while [ $counter -le ${DELETION_TEST_TRIALS} ]
         do
-	    echo "Trial ${counter} / ${TRIALS}"
-	
-            genfile --size=$GEN_SIZE --seed=$SEED $TEST_FILE
+            echo "Trial ${counter} / ${DELETION_TEST_TRIALS}"
+            genfile --size=$FILE_SIZE --seed=$SEED $TEST_FILE
             rm -fv $TEST_FILE
-	    ((counter++))
+            ((counter++))
+            remount_fs
         done
-    popd
     df >> $DIR/df_after_delete_test.txt
+    destroy_fs
 }
 
 main() {

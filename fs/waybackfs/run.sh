@@ -9,9 +9,7 @@ vagrant ssh -- -t <<HEREDOC
 set -euo pipefail
 IFS=$'\n\t'
 
-sudo bash /vagrant/setup.sh
 sudo bash /tests/test.sh WAYBACKFS
-sudo bash /vagrant/teardown.sh
 HEREDOC
 
 vagrant destroy -f
