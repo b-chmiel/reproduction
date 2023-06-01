@@ -9,6 +9,7 @@ import os
 from numbers import Number
 from collections import OrderedDict
 import logging
+import pandas as pd
 
 
 class FilesystemType(Enum):
@@ -75,17 +76,21 @@ class BarPlot:
 
 
 class Bonnie:
+    output_html_path = GRAPHS_OUTPUT_DIR + "/html"
+    output_tex = GRAPHS_OUTPUT_DIR + "/tex"
     output_csv = BONNIE_OUTPUT_DIR + "/bonnie++.csv"
     output_csv_all = BONNIE_OUTPUT_DIR + "/bonnie++_all.csv"
-    output_html = GRAPHS_OUTPUT_DIR + "/bonnie-graphs.html"
-    output_html_all = GRAPHS_OUTPUT_DIR + "/bonnie-graphs_all.html"
+    output_html = output_html_path + "/bonnie-graphs.html"
+    output_html_all = output_html_path + "/bonnie-graphs_all.html"
 
     input_file = "out/bonnie/out.csv"
 
     def __init__(self):
         logging.info(
-            f"Initializing bonnie graphing with input {self.input_file} and output {self.output_csv}, {self.output_html}"
+            f"Initializing bonnie graphing with input {self.input_file} and output {self.output_csv}, {self.output_html_path}"
         )
+        create_dir(self.output_tex)
+        create_dir(self.output_html_path)
         result_all = self.__parse()
         self.__save(result_all, self.output_csv_all)
         self.__generate_table(self.output_html_all, self.output_csv_all)
@@ -179,9 +184,251 @@ class Bonnie:
         with open(filename, "w") as f:
             f.write(result)
 
-    def __generate_table(self, filename, output_csv):
-        with open(filename, "w+") as graphs_html:
-            subprocess.call(["bon_csv2html", output_csv], stdout=graphs_html)
+    def __generate_table(self, output_html, output_csv):
+        df = self.__load_csv(output_csv)
+        df = self.__convert_df_to_multidimentional(df)
+
+        df.to_html(output_html)
+
+        for i in range(0, 36, 3):
+            df_part = df.iloc[:, i : (i + 3)]
+            df_part.to_latex(f"{self.output_tex}/bonnie{int(i / 3 + 1)}.tex")
+
+    def __load_csv(self, filename):
+        # CSV format taken from manual page bon_csv2html(1)
+        #    FORMAT
+        #    This is a list of the fields used in the CSV files  format  version  2.
+        #    Format  version  1  was  the type used in Bonnie++ < 1.90.  Before each
+        #    field I list the field number as well as the name given in the heading
+
+        #    0 format_version
+        #           Version of the output format in use (1.98)
+
+        #    1 bonnie_version
+        #           (1.98)
+
+        #    2 name Machine Name
+
+        #    3 concurrency
+        #           The number of copies of each operation to be  run  at  the  same
+        #           time
+
+        #    4 seed Random number seed
+
+        #    5 file_size
+        #           Size in megs for the IO tests
+
+        #    6 chunk_size
+        #           Size of chunks in bytes
+
+        #    7 seeks
+        #           Number of seeks for random seek test
+
+        #    8 seek_proc_count
+        #           Number of seeker processes for the random seek test
+
+        #    9 putc,putc_cpu
+        #           Results for writing a character at a time K/s,%CPU
+
+        #    11 put_block,put_block_cpu
+        #           Results for writing a block at a time K/s,%CPU
+
+        #    13 rewrite,rewrite_cpu
+        #           Results for reading and re-writing a block at a time K/s,%CPU
+
+        #    15 getc,getc_cpu
+        #           Results for reading a character at a time K/s,%CPU
+
+        #    17 get_block,get_block_cpu
+        #           Results for reading a block at a time K/s,%CPU
+
+        #    19 seeks,seeks_cpu
+        #           Results for the seek test seeks/s,%CPU
+
+        #    21 num_files
+        #           Number of files for file-creation tests (units of 1024 files)
+
+        #    22 max_size
+        #           The  maximum size of files for file-creation tests.  Or the type
+        #           of files for links.
+
+        #    23 min_size
+        #           The minimum size of files for file-creation tests.
+
+        #    24 num_dirs
+        #           The number of directories for creation of files in multiple  di‐
+        #           rectories.
+
+        #    25 file_chunk_size
+        #           The size of blocks for writing multiple files.
+
+        #    26 seq_create,seq_create_cpu
+        #           Rate of creating files sequentially files/s,%CPU
+
+        #    28 seq_stat,seq_stat_cpu
+        #           Rate of reading/stating files sequentially files/s,%CPU
+
+        #    30 seq_del,seq_del_cpu
+        #           Rate of deleting files sequentially files/s,%CPU
+
+        #    32 ran_create,ran_create_cpu
+        #           Rate of creating files in random order files/s,%CPU
+
+        #    34 ran_stat,ran_stat_cpu
+        #           Rate of deleting files in random order files/s,%CPU
+
+        #    36 ran_del,ran_del_cpu
+        #           Rate of deleting files in random order files/s,%CPU
+
+        #    38 putc_latency,put_block_latency,rewrite_latency
+        #           Latency  (maximum  amount  of  time  for a single operation) for
+        #           putc, put_block, and reqrite
+
+        #    41 getc_latency,get_block_latency,seeks_latency
+        #           Latency for getc, get_block, and seeks
+
+        #    44 seq_create_latency,seq_stat_latency,seq_del_latency
+        #           Latency for seq_create, seq_stat, and seq_del
+
+        #    47 ran_create_latency,ran_stat_latency,ran_del_latency
+        #           Latency for ran_create, ran_stat, and ran_del
+
+        df = pd.read_csv(filename, header=None, dtype=object)
+        df = df.drop(
+            df.columns[list(range(0, 2)) + list(range(3, 9)) + list(range(21, 26))],
+            axis=1,
+        )
+        df.columns = [
+            "Filesystem",
+            "Character write K/s",
+            "Character write %CPU",
+            "Block write K/s",
+            "Block write %CPU",
+            "Block read, rewrite K/s",
+            "Block read, rewrite %CPU",
+            "Character read K/s",
+            "Character read %CPU",
+            "Block read K/s",
+            "Block read %CPU",
+            "Random seeks seeks/s",
+            "Random seeks %CPU",
+            "Sequential create files/s",
+            "Sequential create %CPU",
+            "Sequential read files/s",
+            "Sequential read %CPU",
+            "Sequential delete files/s",
+            "Sequential delete %CPU",
+            "Random create files/s",
+            "Random create %CPU",
+            "Random read files/s",
+            "Random read %CPU",
+            "Random delete files/s",
+            "Random delete %CPU",
+            "Latency for putc",
+            "Latency for put_block",
+            "Latency for rewrite",
+            "Latency for getc",
+            "Latency for get_block",
+            "Latency for seeks",
+            "Latency for seq_create",
+            "Latency for seq_stat",
+            "Latency for seq_del",
+            "Latency for ran_create",
+            "Latency for ran_stat",
+            "Latency for ran_del",
+        ]
+        return df
+
+    def __convert_df_to_multidimentional(self, df):
+        df = df[
+            [
+                "Filesystem",
+                "Character write K/s",
+                "Character write %CPU",
+                "Latency for putc",
+                "Block write K/s",
+                "Block write %CPU",
+                "Latency for put_block",
+                "Block read, rewrite K/s",
+                "Block read, rewrite %CPU",
+                "Latency for rewrite",
+                "Character read K/s",
+                "Character read %CPU",
+                "Latency for getc",
+                "Block read K/s",
+                "Block read %CPU",
+                "Latency for get_block",
+                "Random seeks seeks/s",
+                "Random seeks %CPU",
+                "Latency for seeks",
+                "Sequential create files/s",
+                "Sequential create %CPU",
+                "Latency for seq_create",
+                "Sequential read files/s",
+                "Sequential read %CPU",
+                "Latency for seq_stat",
+                "Sequential delete files/s",
+                "Sequential delete %CPU",
+                "Latency for seq_del",
+                "Random create files/s",
+                "Random create %CPU",
+                "Latency for ran_create",
+                "Random read files/s",
+                "Random read %CPU",
+                "Latency for ran_stat",
+                "Random delete files/s",
+                "Random delete %CPU",
+                "Latency for ran_del",
+            ]
+        ]
+        column_names = pd.DataFrame(
+            [
+                ["Character write", "K/s"],
+                ["Character write", "CPU"],
+                ["Character write", "Latency"],
+                ["Block write", "K/s"],
+                ["Block write", "CPU"],
+                ["Block write", "Latency"],
+                ["Block read, rewrite", "K/s"],
+                ["Block read, rewrite", "CPU"],
+                ["Block read, rewrite", "Latency"],
+                ["Character read", "K/s"],
+                ["Character read", "CPU"],
+                ["Character read", "Latency"],
+                ["Block read", "K/s"],
+                ["Block read", "CPU"],
+                ["Block read", "Latency"],
+                ["Random seeks", "seek/s"],
+                ["Random seeks", "CPU"],
+                ["Random seeks", "Latency"],
+                ["Sequential create", "files/s"],
+                ["Sequential create", "CPU"],
+                ["Sequential create", "Latency"],
+                ["Sequential read", "files/s"],
+                ["Sequential read", "CPU"],
+                ["Sequential read", "Latency"],
+                ["Sequential delete", "files/s"],
+                ["Sequential delete", "CPU"],
+                ["Sequential delete", "Latency"],
+                ["Random create", "files/s"],
+                ["Random create", "CPU"],
+                ["Random create", "Latency"],
+                ["Random read", "files/s"],
+                ["Random read", "CPU"],
+                ["Random read", "Latency"],
+                ["Random delete", "files/s"],
+                ["Random delete", "CPU"],
+                ["Random delete", "Latency"],
+            ],
+            columns=["Filesystem", ""],
+        )
+
+        columns = pd.MultiIndex.from_frame(column_names)
+
+        df = df.set_index("Filesystem")
+        df.columns = columns
+        df.index.name = None
+        return df
 
 
 class Df:
