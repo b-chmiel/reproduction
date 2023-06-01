@@ -75,7 +75,79 @@ class BarPlot:
         plt.cla()
 
 
-class Bonnie:
+class Df:
+    class __DfResult:
+        def __init__(self, before, after, name):
+            self.before = before
+            self.after = after
+            self.name = name
+
+        def x(self):
+            return self.name
+
+        def y(self):
+            return (self.after - self.before) / 1000_000  # in gigabytes
+
+    def __init__(
+        self,
+        input_file_before,
+        input_file_after,
+        output_image,
+        title,
+        exclude_fs: list[FilesystemType] = [],
+    ):
+        self.input_file_before = input_file_before
+        self.input_file_after = input_file_after
+        self.output_image = output_image
+        self.title = title
+        self.exclude_fs = exclude_fs
+
+        result = self.__parse()
+        self.__plot(result, self.title)
+
+    def __parse(self):
+        result = []
+        for path in FilesystemType:
+            if path in self.exclude_fs:
+                continue
+
+            before = 0
+            after = 0
+            df_line_start = FS_MOUNT_POINTS[path]
+            try:
+                with open(f"fs/{path.value}/{self.input_file_before}") as f:
+                    before = self.__df_results_read_file(f, df_line_start)
+
+                with open(f"fs/{path.value}/{self.input_file_after}") as f:
+                    after = self.__df_results_read_file(f, df_line_start)
+                result.append(self.__DfResult(before, after, path.value))
+
+            except FileNotFoundError:
+                logging.warning(f"Cannot read df file for '{path.value}'. Skipping")
+
+        return result
+
+    def __df_results_read_file(self, file, df_line_start):
+        lines = []
+        while line := file.readline():
+            if df_line_start in line:
+                lines.append(line)
+
+        bytes_used = [int(line.split()[2]) for line in lines]
+        return sum(bytes_used) / len(bytes_used)
+
+    def __plot(self, results, title: str):
+        x = [result.x() for result in results]
+        y = [result.y() for result in results]
+        xlabel = "File system"
+        ylabel = "Space used (GB)"
+        filename = self.output_image
+
+        p = BarPlot(x, y, xlabel, ylabel, title, filename)
+        p.plot()
+
+
+class BonnieBenchmark:
     output_html_path = GRAPHS_OUTPUT_DIR + "/html"
     output_tex = GRAPHS_OUTPUT_DIR + "/tex"
     output_csv = BONNIE_OUTPUT_DIR + "/bonnie++.csv"
@@ -98,6 +170,7 @@ class Bonnie:
         result = self.__parse([FilesystemType.NILFS_DEDUP])
         self.__save(result, self.output_csv)
         self.__generate_table(self.output_html, self.output_csv)
+        self.__df()
 
     def __parse(self, exclude: list[FilesystemType] = []):
         result = ""
@@ -430,83 +503,27 @@ class Bonnie:
         df.index.name = None
         return df
 
+    def __df(self):
+        logging.info("Generating df graphs for bonnie")
+        input_file_before = "out/bonnie/df_before_bonnie.txt"
+        input_file_after = "out/bonnie/df_after_bonnie.txt"
+        output_image_name = "bonnie_metadata_size"
+        title = "Space occupied after Bonnie++ test"
 
-class Df:
-    class DfPlot:
-        pass
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            [FilesystemType.NILFS_DEDUP],
+        )
 
-    class __DfResult:
-        def __init__(self, before, after, name):
-            self.before = before
-            self.after = after
-            self.name = name
+        output_image_name = "bonnie_metadata_size_all"
 
-        def x(self):
-            return self.name
-
-        def y(self):
-            return (self.after - self.before) / 1000_000  # in gigabytes
-
-    def __init__(
-        self,
-        input_file_before,
-        input_file_after,
-        output_image,
-        title,
-        exclude_fs: list[FilesystemType] = [],
-    ):
-        self.input_file_before = input_file_before
-        self.input_file_after = input_file_after
-        self.output_image = output_image
-        self.title = title
-        self.exclude_fs = exclude_fs
-
-        result = self.__parse()
-        self.__plot(result, self.title)
-
-    def __parse(self):
-        result = []
-        for path in FilesystemType:
-            if path in self.exclude_fs:
-                continue
-
-            before = 0
-            after = 0
-            df_line_start = FS_MOUNT_POINTS[path]
-            try:
-                with open(f"fs/{path.value}/{self.input_file_before}") as f:
-                    before = self.__df_results_read_file(f, df_line_start)
-
-                with open(f"fs/{path.value}/{self.input_file_after}") as f:
-                    after = self.__df_results_read_file(f, df_line_start)
-                result.append(self.__DfResult(before, after, path.value))
-
-            except FileNotFoundError:
-                logging.warning(f"Cannot read df file for '{path.value}'. Skipping")
-
-        return result
-
-    def __df_results_read_file(self, file, df_line_start):
-        lines = []
-        while line := file.readline():
-            if df_line_start in line:
-                lines.append(line)
-
-        bytes_used = [int(line.split()[2]) for line in lines]
-        return sum(bytes_used) / len(bytes_used)
-
-    def __plot(self, results, title: str):
-        x = [result.x() for result in results]
-        y = [result.y() for result in results]
-        xlabel = "File system"
-        ylabel = "Space used (GB)"
-        filename = self.output_image
-
-        p = BarPlot(x, y, xlabel, ylabel, title, filename)
-        p.plot()
+        Df(input_file_before, input_file_after, output_image_name, title)
 
 
-class Fio:
+class FioBenchmark:
     data_dir = OUTPUT_DIR + "/fio/gnuplot"
 
     def __init__(self):
@@ -517,6 +534,7 @@ class Fio:
                     logging.info(f"Processing fio result file: {file}")
                     self.__process(os.path.join(subdir, file))
                     self.__process_without_dedup(os.path.join(subdir, file))
+        self.__df()
 
     def __process(self, file_path: str):
         xx = []
@@ -536,7 +554,7 @@ class Fio:
         self.__plot(xx, yy, file_path)
 
     def __plot(self, xx, yy, file_path):
-        # ./build/fio/gnuplot/random_read_test_bw.average
+        # ./output/fio/gnuplot/random_read_test_bw.average
         # Match this part     ^--------------^
         test_name = " ".join(file_path.split("/")[-1].split(".")[0].split("_")[:3])
         title = f"I/O Bandwidth for {test_name}"
@@ -573,7 +591,7 @@ class Fio:
         self.__plot_without_dedup(xx, yy, file_path)
 
     def __plot_without_dedup(self, xx, yy, file_path):
-        # ./build/fio/gnuplot/random_read_test_bw.average
+        # ./output/fio/gnuplot/random_read_test_bw.average
         # Match this part     ^--------------^
         test_name = " ".join(file_path.split("/")[-1].split(".")[0].split("_")[:3])
         title = f"I/O Bandwidth for {test_name}"
@@ -585,6 +603,70 @@ class Fio:
 
     def __does_list_contain_digit(self, list):
         return len([s for s in list if s.isdigit()]) != 0
+
+    def __df(self):
+        logging.info("Generating df graphs for fio tests")
+        out_dir = "out/fio"
+
+        input_file_before = out_dir + "/df_before_fio_file_append_read_test.txt"
+        input_file_after = out_dir + "/df_after_fio_file_append_read_test.txt"
+        output_image_name = "fio_file_append_read_metadata_size"
+        title = "Space occupied after fio append read test"
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            [FilesystemType.NILFS_DEDUP],
+        )
+
+        output_image_name = "fio_file_append_read_metadata_size_all"
+        Df(input_file_before, input_file_after, output_image_name, title)
+
+        input_file_before = out_dir + "/df_before_fio_file_append_write_test.txt"
+        input_file_after = out_dir + "/df_after_fio_file_append_write_test.txt"
+        output_image_name = "fio_file_append_write_metadata_size"
+        title = "Space occupied after fio append write test"
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            [FilesystemType.NILFS_DEDUP],
+        )
+
+        output_image_name = "fio_file_append_write_metadata_size_all"
+        Df(input_file_before, input_file_after, output_image_name, title)
+
+        input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
+        input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
+        output_image_name = "fio_random_read_metadata_size"
+        title = "Space occupied after fio read test"
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            [FilesystemType.NILFS_DEDUP],
+        )
+
+        output_image_name = "fio_random_read_metadata_size_all"
+        Df(input_file_before, input_file_after, output_image_name, title)
+
+        input_file_before = out_dir + "/df_before_fio_random_write_test.txt"
+        input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
+        output_image_name = "fio_random_write_metadata_size"
+        title = "Space occupied after fio write test"
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            [FilesystemType.NILFS_DEDUP],
+        )
+
+        output_image_name = "fio_random_write_metadata_size_all"
+        Df(input_file_before, input_file_after, output_image_name, title)
 
 
 class DfSize:
@@ -736,114 +818,47 @@ class DedupDf:
             return f"""DedupDfFile: {{filename = {self.filename}, prog_name = {self.prog_name}, file_size = {self.file_size}, df_size = {{{self.df_size}}}}}"""
 
 
+class DedupBenchmark:
+    def __init__(self):
+        DedupDf(
+            fs_type=FilesystemType.NILFS_DEDUP,
+            tool_name="dedup",
+            display_tool_name="Nilfs dedup",
+        )
+        DedupDf(
+            fs_type=FilesystemType.BTRFS, tool_name="dduper", display_tool_name="dduper"
+        )
+        DedupDf(
+            fs_type=FilesystemType.BTRFS,
+            tool_name="duperemove",
+            display_tool_name="duperemove",
+        )
+
+
+class DeleteBenchmark:
+    def __init__(self):
+        logging.info("Generating df graphs for delete test")
+        input_file_before = "out/delete/df_before_delete_test.txt"
+        input_file_after = "out/delete/df_after_delete_test.txt"
+        output_image_name = "delete_metadata_size"
+        title = "Space occupied after deletion test"
+
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            [FilesystemType.NILFS_DEDUP],
+        )
+
+        output_image_name = "delete_metadata_size_all"
+
+        Df(input_file_before, input_file_after, output_image_name, title)
+
+
 def create_dir(dir_name: str):
     logging.debug(f"Creating directory {dir_name}")
     Path(dir_name).mkdir(parents=True, exist_ok=True)
-
-
-def bonnie_df():
-    logging.info("Generating df graphs for bonnie")
-    input_file_before = "out/bonnie/df_before_bonnie.txt"
-    input_file_after = "out/bonnie/df_after_bonnie.txt"
-    output_image_name = "bonnie_metadata_size"
-    title = "Space occupied after Bonnie++ test"
-
-    Df(
-        input_file_before,
-        input_file_after,
-        output_image_name,
-        title,
-        [FilesystemType.NILFS_DEDUP],
-    )
-
-    output_image_name = "bonnie_metadata_size_all"
-
-    Df(input_file_before, input_file_after, output_image_name, title)
-
-
-def delete_df():
-    logging.info("Generating df graphs for delete test")
-    input_file_before = "out/delete/df_before_delete_test.txt"
-    input_file_after = "out/delete/df_after_delete_test.txt"
-    output_image_name = "delete_metadata_size"
-    title = "Space occupied after deletion test"
-
-    Df(
-        input_file_before,
-        input_file_after,
-        output_image_name,
-        title,
-        [FilesystemType.NILFS_DEDUP],
-    )
-
-    output_image_name = "delete_metadata_size_all"
-
-    Df(input_file_before, input_file_after, output_image_name, title)
-
-
-def fio_df():
-    logging.info("Generating df graphs for fio tests")
-    out_dir = "out/fio"
-
-    input_file_before = out_dir + "/df_before_fio_file_append_read_test.txt"
-    input_file_after = out_dir + "/df_after_fio_file_append_read_test.txt"
-    output_image_name = "fio_file_append_read_metadata_size"
-    title = "Space occupied after fio append read test"
-    Df(
-        input_file_before,
-        input_file_after,
-        output_image_name,
-        title,
-        [FilesystemType.NILFS_DEDUP],
-    )
-
-    output_image_name = "fio_file_append_read_metadata_size_all"
-    Df(input_file_before, input_file_after, output_image_name, title)
-
-    input_file_before = out_dir + "/df_before_fio_file_append_write_test.txt"
-    input_file_after = out_dir + "/df_after_fio_file_append_write_test.txt"
-    output_image_name = "fio_file_append_write_metadata_size"
-    title = "Space occupied after fio append write test"
-    Df(
-        input_file_before,
-        input_file_after,
-        output_image_name,
-        title,
-        [FilesystemType.NILFS_DEDUP],
-    )
-
-    output_image_name = "fio_file_append_write_metadata_size_all"
-    Df(input_file_before, input_file_after, output_image_name, title)
-
-    input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
-    input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
-    output_image_name = "fio_random_read_metadata_size"
-    title = "Space occupied after fio read test"
-    Df(
-        input_file_before,
-        input_file_after,
-        output_image_name,
-        title,
-        [FilesystemType.NILFS_DEDUP],
-    )
-
-    output_image_name = "fio_random_read_metadata_size_all"
-    Df(input_file_before, input_file_after, output_image_name, title)
-
-    input_file_before = out_dir + "/df_before_fio_random_write_test.txt"
-    input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
-    output_image_name = "fio_random_write_metadata_size"
-    title = "Space occupied after fio write test"
-    Df(
-        input_file_before,
-        input_file_after,
-        output_image_name,
-        title,
-        [FilesystemType.NILFS_DEDUP],
-    )
-
-    output_image_name = "fio_random_write_metadata_size_all"
-    Df(input_file_before, input_file_after, output_image_name, title)
 
 
 def configure_logging():
@@ -866,24 +881,11 @@ def main():
 
     create_output_dirs()
 
-    Bonnie()
-    bonnie_df()
-    delete_df()
-    fio_df()
-    Fio()
-    DedupDf(
-        fs_type=FilesystemType.NILFS_DEDUP,
-        tool_name="dedup",
-        display_tool_name="Nilfs dedup",
-    )
-    DedupDf(
-        fs_type=FilesystemType.BTRFS, tool_name="dduper", display_tool_name="dduper"
-    )
-    DedupDf(
-        fs_type=FilesystemType.BTRFS,
-        tool_name="duperemove",
-        display_tool_name="duperemove",
-    )
+    BonnieBenchmark()
+    DeleteBenchmark()
+    FioBenchmark()
+    DedupBenchmark()
+
     logging.info("END")
 
 
