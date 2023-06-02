@@ -10,6 +10,7 @@ from numbers import Number
 from collections import OrderedDict
 import logging
 import pandas as pd
+import configparser
 
 
 class FilesystemType(Enum):
@@ -31,6 +32,7 @@ FS_MOUNT_POINTS = {
 OUTPUT_DIR = "./output"
 GRAPHS_OUTPUT_DIR = OUTPUT_DIR + "/graphs"
 BONNIE_OUTPUT_DIR = OUTPUT_DIR + "/bonnie"
+FIO_CONFIG = "./tests/fio-job.cfg"
 
 
 class PlotExportType(Enum):
@@ -528,13 +530,17 @@ class FioBenchmark:
 
     def __init__(self):
         logging.info(f"Generating fio graphs from data dir {self.data_dir}")
-        for subdir, dirs, files in os.walk(self.data_dir):
+        self.__fio()
+        self.__df()
+        self.__test_configuration()
+
+    def __fio(self):
+        for subdir, _, files in os.walk(self.data_dir):
             for file in files:
                 if "average" in file:
                     logging.info(f"Processing fio result file: {file}")
                     self.__process(os.path.join(subdir, file))
                     self.__process_without_dedup(os.path.join(subdir, file))
-        self.__df()
 
     def __process(self, file_path: str):
         xx = []
@@ -667,6 +673,51 @@ class FioBenchmark:
 
         output_image_name = "fio_random_write_metadata_size_all"
         Df(input_file_before, input_file_after, output_image_name, title)
+
+    def __test_configuration(self):
+        config = self.__test_configuration_read()
+        df = self.__test_configuration_parse(config)
+        self.__test_configuration_export(df)
+
+    def __test_configuration_read(self):
+        config = configparser.ConfigParser()
+        logging.info(f"Reading fio config from {FIO_CONFIG}")
+        config.read(FIO_CONFIG)
+        return config
+
+    def __test_configuration_parse(config) -> pd.DataFrame:
+        direct = "Yes" if config["global"]["direct"] == "1" else "No"
+        size = config["global"]["size"]
+        time_based = "Yes" if config["global"]["time_based"] == "1" else "No"
+        runtime = int(config["global"]["runtime"])
+        ramp_size = int(config["global"]["ramp_time"])
+        block_size = config["global"]["blocksize"]
+        iodepth = int(config["global"]["iodepth"])
+        ioengine = config["global"]["ioengine"]
+        fsync = "Yes" if config["global"]["fsync"] == "1" else "No"
+        randseed = int(config["global"]["randseed"])
+
+        df = pd.DataFrame(
+            {
+                "Direct": [direct],
+                "File size": [size],
+                "Time based": [time_based],
+                "Runtime": [runtime],
+                "Ramp time": [ramp_size],
+                "Block size": [block_size],
+                "Concurrent I/O units": [iodepth],
+                "I/O engine": [ioengine],
+                "Fsync": [fsync],
+                "Random seed": [randseed],
+            },
+        )
+
+        return df
+
+    def __test_configuration_export(df: pd.DataFrame):
+        filename = f"{GRAPHS_OUTPUT_DIR}/tex/fio_configuration.tex"
+        logging.info(f"Saving fio config summary as {filename}")
+        df.to_latex(filename, index=False)
 
 
 class DfSize:
