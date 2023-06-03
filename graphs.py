@@ -685,7 +685,7 @@ class FioBenchmark:
         config.read(FIO_CONFIG)
         return config
 
-    def __test_configuration_parse(config) -> pd.DataFrame:
+    def __test_configuration_parse(self, config) -> pd.DataFrame:
         direct = "Yes" if config["global"]["direct"] == "1" else "No"
         size = config["global"]["size"]
         time_based = "Yes" if config["global"]["time_based"] == "1" else "No"
@@ -699,22 +699,36 @@ class FioBenchmark:
 
         df = pd.DataFrame(
             {
-                "Direct": [direct],
-                "File size": [size],
-                "Time based": [time_based],
-                "Runtime": [runtime],
-                "Ramp time": [ramp_size],
-                "Block size": [block_size],
-                "Concurrent I/O units": [iodepth],
-                "I/O engine": [ioengine],
-                "Fsync": [fsync],
-                "Random seed": [randseed],
+                "Parameter": [
+                    "Random seed",
+                    "Fsync",
+                    "I/O engine",
+                    "Concurrent I/O units",
+                    "Block size",
+                    "Ramp time",
+                    "Runtime",
+                    "Time based",
+                    "File size",
+                    "Direct",
+                ],
+                "Value": [
+                    randseed,
+                    fsync,
+                    ioengine,
+                    iodepth,
+                    block_size,
+                    ramp_size,
+                    runtime,
+                    time_based,
+                    size,
+                    direct,
+                ],
             },
         )
 
         return df
 
-    def __test_configuration_export(df: pd.DataFrame):
+    def __test_configuration_export(self, df: pd.DataFrame):
         filename = f"{GRAPHS_OUTPUT_DIR}/tex/fio_configuration.tex"
         logging.info(f"Saving fio config summary as {filename}")
         df.to_latex(filename, index=False)
@@ -932,10 +946,10 @@ def main():
 
     create_output_dirs()
 
-    BonnieBenchmark()
-    DeleteBenchmark()
+    # BonnieBenchmark()
+    # DeleteBenchmark()
     FioBenchmark()
-    DedupBenchmark()
+    # DedupBenchmark()
 
     logging.info("END")
 
