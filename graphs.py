@@ -946,10 +946,10 @@ def main():
 
     create_output_dirs()
 
-    # BonnieBenchmark()
-    # DeleteBenchmark()
+    BonnieBenchmark()
+    DeleteBenchmark()
     FioBenchmark()
-    # DedupBenchmark()
+    DedupBenchmark()
 
     logging.info("END")
 
