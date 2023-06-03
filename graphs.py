@@ -32,7 +32,9 @@ FS_MOUNT_POINTS = {
 OUTPUT_DIR = "./output"
 GRAPHS_OUTPUT_DIR = OUTPUT_DIR + "/graphs"
 BONNIE_OUTPUT_DIR = OUTPUT_DIR + "/bonnie"
+
 FIO_CONFIG = "./tests/fio-job.cfg"
+BONNIE_CONFIG = "./tests/test_env.sh"
 
 
 class PlotExportType(Enum):
@@ -173,6 +175,7 @@ class BonnieBenchmark:
         self.__save(result, self.output_csv)
         self.__generate_table(self.output_html, self.output_csv)
         self.__df()
+        self.__test_configuration()
 
     def __parse(self, exclude: list[FilesystemType] = []):
         result = ""
@@ -523,6 +526,52 @@ class BonnieBenchmark:
         output_image_name = "bonnie_metadata_size_all"
 
         Df(input_file_before, input_file_after, output_image_name, title)
+
+    class __BonnieConfigType(Enum):
+        SEED = "SEED"
+        BLOCK_SIZE = "BLOCK_SIZE"
+        BONNIE_NUMBER_OF_FILES = "BONNIE_NUMBER_OF_FILES"
+        FILE_SIZE = "FILE_SIZE"
+
+    def __test_configuration(self):
+        config = self.__test_configuration_read()
+        df = self.__test_configuration_parse(config)
+        self.__test_configuration_export(df)
+
+    def __test_configuration_read(self):
+        params = {}
+        with open(BONNIE_CONFIG, "r") as f:
+            for line in f.readlines():
+                splitted = line.split("=")
+                key = splitted[0].strip()
+                if any(type.value in key for type in self.__BonnieConfigType):
+                    # split to get two sides of expression
+                    # ex. SEED=29047 -> params["SEED"] = 29047
+                    value = splitted[1].strip()
+                    params[key] = value
+
+        return params
+
+    def __test_configuration_parse(self, params):
+        df = pd.DataFrame(
+            {
+                "Parameter": ["seed", "block size", "number of files", "file size"],
+                "Value": [
+                    int(params[self.__BonnieConfigType.SEED.value]),
+                    int(params[self.__BonnieConfigType.BLOCK_SIZE.value]),
+                    # since config value is a multiple of 1024 according to bonnie docs
+                    int(params[self.__BonnieConfigType.BONNIE_NUMBER_OF_FILES.value])
+                    * 1024,
+                    params[self.__BonnieConfigType.FILE_SIZE.value],
+                ],
+            }
+        )
+        return df
+
+    def __test_configuration_export(self, df):
+        filename = f"{GRAPHS_OUTPUT_DIR}/tex/bonnie_configuration.tex"
+        logging.info(f"Saving bonnie config summary as {filename}")
+        df.to_latex(filename, index=False)
 
 
 class FioBenchmark:
