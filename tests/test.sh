@@ -28,6 +28,8 @@ bonnie_test() {
     remount_fs
     df >> $DIR/df_after_bonnie.txt
     destroy_fs
+    sleep 5
+    destroy_fs
 }
 
 fio_test() {
