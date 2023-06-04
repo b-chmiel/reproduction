@@ -274,9 +274,13 @@ class BonnieBenchmark:
 
         df.to_html(output_html)
 
-        for i in range(0, 36, 3):
-            df_part = df.iloc[:, i : (i + 3)]
-            df_part.to_latex(f"{self.output_tex}/bonnie{int(i / 3 + 1)}.tex")
+        total_tables = 12
+        columns_count = 2
+        for i in range(0, total_tables * columns_count, columns_count):
+            df_part = df.iloc[:, i : (i + columns_count)]
+            df_part.to_latex(
+                f"{self.output_tex}/bonnie{int(i / columns_count + 1)}.tex"
+            )
 
     def __load_csv(self, filename):
         # CSV format taken from manual page bon_csv2html(1)
@@ -378,8 +382,19 @@ class BonnieBenchmark:
         #           Latency for ran_create, ran_stat, and ran_del
 
         df = pd.read_csv(filename, header=None, dtype=object)
+        bonnie_version_range = list(range(0, 2))
+        bonnie_configuration_range = list(range(3, 9))
+        bonnie_files_configuration_range = list(range(21, 26))
+        bonnie_latency_range = list(range(38, 50))
+        bonnie_exclude = (
+            bonnie_version_range
+            + bonnie_configuration_range
+            + bonnie_files_configuration_range
+            + bonnie_latency_range
+        )
+
         df = df.drop(
-            df.columns[list(range(0, 2)) + list(range(3, 9)) + list(range(21, 26))],
+            df.columns[bonnie_exclude],
             axis=1,
         )
         df.columns = [
@@ -408,18 +423,6 @@ class BonnieBenchmark:
             "Random read %CPU",
             "Random delete files/s",
             "Random delete %CPU",
-            "Latency for putc",
-            "Latency for put_block",
-            "Latency for rewrite",
-            "Latency for getc",
-            "Latency for get_block",
-            "Latency for seeks",
-            "Latency for seq_create",
-            "Latency for seq_stat",
-            "Latency for seq_del",
-            "Latency for ran_create",
-            "Latency for ran_stat",
-            "Latency for ran_del",
         ]
         return df
 
@@ -429,80 +432,56 @@ class BonnieBenchmark:
                 "Filesystem",
                 "Character write K/s",
                 "Character write %CPU",
-                "Latency for putc",
                 "Block write K/s",
                 "Block write %CPU",
-                "Latency for put_block",
                 "Block read, rewrite K/s",
                 "Block read, rewrite %CPU",
-                "Latency for rewrite",
                 "Character read K/s",
                 "Character read %CPU",
-                "Latency for getc",
                 "Block read K/s",
                 "Block read %CPU",
-                "Latency for get_block",
                 "Random seeks seeks/s",
                 "Random seeks %CPU",
-                "Latency for seeks",
                 "Sequential create files/s",
                 "Sequential create %CPU",
-                "Latency for seq_create",
                 "Sequential read files/s",
                 "Sequential read %CPU",
-                "Latency for seq_stat",
                 "Sequential delete files/s",
                 "Sequential delete %CPU",
-                "Latency for seq_del",
                 "Random create files/s",
                 "Random create %CPU",
-                "Latency for ran_create",
                 "Random read files/s",
                 "Random read %CPU",
-                "Latency for ran_stat",
                 "Random delete files/s",
                 "Random delete %CPU",
-                "Latency for ran_del",
             ]
         ]
         column_names = pd.DataFrame(
             [
                 ["Character write", "KiB/s"],
                 ["Character write", "\%CPU"],
-                ["Character write", "Latency"],
                 ["Block write", "KiB/s"],
                 ["Block write", "\%CPU"],
-                ["Block write", "Latency"],
                 ["Block read, rewrite", "KiB/s"],
                 ["Block read, rewrite", "\%CPU"],
-                ["Block read, rewrite", "Latency"],
                 ["Character read", "KiB/s"],
                 ["Character read", "\%CPU"],
-                ["Character read", "Latency"],
                 ["Block read", "KiB/s"],
                 ["Block read", "\%CPU"],
-                ["Block read", "Latency"],
                 ["Random seeks", "seek/s"],
                 ["Random seeks", "\%CPU"],
-                ["Random seeks", "Latency"],
                 ["Sequential create", "files/s"],
                 ["Sequential create", "\%CPU"],
-                ["Sequential create", "Latency"],
                 ["Sequential read", "files/s"],
                 ["Sequential read", "\%CPU"],
-                ["Sequential read", "Latency"],
                 ["Sequential delete", "files/s"],
                 ["Sequential delete", "\%CPU"],
-                ["Sequential delete", "Latency"],
                 ["Random create", "files/s"],
                 ["Random create", "\%CPU"],
-                ["Random create", "Latency"],
                 ["Random read", "files/s"],
                 ["Random read", "\%CPU"],
-                ["Random read", "Latency"],
                 ["Random delete", "files/s"],
                 ["Random delete", "\%CPU"],
-                ["Random delete", "Latency"],
             ],
             columns=["Filesystem", ""],
         )
