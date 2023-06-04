@@ -538,6 +538,7 @@ class BonnieBenchmark:
         BLOCK_SIZE = "BLOCK_SIZE"
         BONNIE_NUMBER_OF_FILES = "BONNIE_NUMBER_OF_FILES"
         FILE_SIZE = "FILE_SIZE"
+        RUNS = "BONNIE_RUNS"
 
     def __test_configuration(self):
         config = self.__test_configuration_read()
@@ -561,7 +562,13 @@ class BonnieBenchmark:
     def __test_configuration_parse(self, params):
         df = pd.DataFrame(
             {
-                "Parameter": ["seed", "block size", "number of files", "file size"],
+                "Parameter": [
+                    "seed",
+                    "block size",
+                    "number of files",
+                    "file size",
+                    "test runs",
+                ],
                 "Value": [
                     int(params[self.__BonnieConfigType.SEED.value]),
                     int(params[self.__BonnieConfigType.BLOCK_SIZE.value]),
@@ -569,6 +576,7 @@ class BonnieBenchmark:
                     int(params[self.__BonnieConfigType.BONNIE_NUMBER_OF_FILES.value])
                     * 1024,
                     params[self.__BonnieConfigType.FILE_SIZE.value],
+                    params[self.__BonnieConfigType.RUNS.value],
                 ],
             }
         )
