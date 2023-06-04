@@ -544,16 +544,12 @@ class BonnieBenchmark:
                 "Parameter": [
                     "seed",
                     "block size",
-                    "number of files",
                     "file size",
                     "test runs",
                 ],
                 "Value": [
                     int(params[self.__BonnieConfigType.SEED.value]),
                     int(params[self.__BonnieConfigType.BLOCK_SIZE.value]),
-                    # since config value is a multiple of 1024 according to bonnie docs
-                    int(params[self.__BonnieConfigType.BONNIE_NUMBER_OF_FILES.value])
-                    * 1024,
                     params[self.__BonnieConfigType.FILE_SIZE.value],
                     params[self.__BonnieConfigType.RUNS.value],
                 ],
