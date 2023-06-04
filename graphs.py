@@ -11,6 +11,7 @@ from collections import OrderedDict
 import logging
 import pandas as pd
 import configparser
+import matplotlib.ticker as mtick
 
 
 class FilesystemType(Enum):
@@ -70,6 +71,21 @@ class BarPlot:
 
         logging.info(f"Generating BarPlot: {out_jpg}, {out_svg}")
         plt.bar(np.arange(len(self.y)), self.y, color="blue", edgecolor="black")
+        plt.xticks(np.arange(len(self.y)), self.x)
+        plt.xlabel(self.xlabel, fontsize=16)
+        plt.ylabel(self.ylabel, fontsize=16)
+        plt.title(self.title, fontsize=16)
+        plt.savefig(out_jpg, dpi=300)
+        plt.savefig(out_svg)
+        plt.cla()
+
+    def plot_percentage(self):
+        out_jpg = f"{self.out_dir_jpg}/{self.filename}.{PlotExportType.JPG.value}"
+        out_svg = f"{self.out_dir_svg}/{self.filename}.{PlotExportType.SVG.value}"
+
+        logging.info(f"Generating BarPlot: {out_jpg}, {out_svg}")
+        plt.bar(np.arange(len(self.y)), self.y, color="blue", edgecolor="black")
+        plt.gca().set_yticklabels([f"{x:.0%}" for x in plt.gca().get_yticks()])
         plt.xticks(np.arange(len(self.y)), self.x)
         plt.xlabel(self.xlabel, fontsize=16)
         plt.ylabel(self.ylabel, fontsize=16)
@@ -810,19 +826,19 @@ class DedupDf:
         self.__generate_graphs_data_reduction()
 
     def __generate_graphs_dedup_ratio(self):
-        title = f"{self.display_tool_name} deduplication ratio"
+        title = f"{self.display_tool_name} space reduction ratio"
         filename = f"{self.tool_name}_dedup_ratio"
         xlabel = "File size"
-        ylabel = "Deduplication ratio"
+        ylabel = "Space reduction ratio"
         self.__generate_graphs(
             title, filename, xlabel, ylabel, self.__calculate_deduplication_ratio
         )
 
     def __generate_graphs_data_reduction(self):
-        title = f"{self.display_tool_name} data reduction"
+        title = f"{self.display_tool_name} space reduction"
         filename = f"{self.tool_name}_data_reduction"
         xlabel = "File size"
-        ylabel = "Data reduction ratio"
+        ylabel = "Space reduction"
         self.__generate_graphs(
             title, filename, xlabel, ylabel, self.__calculate_data_reduction
         )
@@ -844,7 +860,7 @@ class DedupDf:
             yy.append(y)
 
         p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
-        p.plot()
+        p.plot_percentage()
 
     def sort_by_size_without_postfix(self, key):
         size = key[0]
