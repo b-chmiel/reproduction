@@ -3,6 +3,10 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+resize_partition() {
+    resize2fs /dev/sda1
+}
+
 packages() {
     apt-get update && \
         export DEBIAN_FRONTEND=noninteractive && \
@@ -79,6 +83,7 @@ fix_keys() {
 }
 
 main() {
+    resize_partition
     packages
     bonnie
     fio_install
