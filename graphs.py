@@ -749,42 +749,36 @@ class FioBenchmark:
         return config
 
     def __test_configuration_parse(self, config) -> pd.DataFrame:
-        direct = "Yes" if config["global"]["direct"] == "1" else "No"
         size = config["global"]["size"]
-        time_based = "Yes" if config["global"]["time_based"] == "1" else "No"
         runtime = int(config["global"]["runtime"])
         ramp_size = int(config["global"]["ramp_time"])
         block_size = config["global"]["blocksize"]
         iodepth = int(config["global"]["iodepth"])
         ioengine = config["global"]["ioengine"]
-        fsync = "Yes" if config["global"]["fsync"] == "1" else "No"
         randseed = int(config["global"]["randseed"])
+        allrandrepeat = "Yes" if config["global"]["allrandrepeat"] == "1" else "No"
 
         df = pd.DataFrame(
             {
                 "Parameter": [
                     "Random seed",
-                    "Fsync",
+                    "All rand repeat",
                     "I/O engine",
                     "Concurrent I/O units",
                     "Block size",
                     "Ramp time",
                     "Runtime",
-                    "Time based",
                     "File size",
-                    "Direct",
                 ],
                 "Value": [
                     randseed,
-                    fsync,
+                    allrandrepeat,
                     ioengine,
                     iodepth,
                     block_size,
                     ramp_size,
                     runtime,
-                    time_based,
                     size,
-                    direct,
                 ],
             },
         )
