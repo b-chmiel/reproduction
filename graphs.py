@@ -196,16 +196,20 @@ class BonnieBenchmark:
 
         for i, field in enumerate(splitted):
             # skip metadata and empty fields
-            if i < 10 or field == "" or field == "+++++" or field == "+++":
+            if i < 10:
                 continue
 
-            if "us" in field:
-                field = field.strip()
-                splitted[i] = str(int(field[:-2]) / 1000) + "ms"
+            field = field.strip()
 
-            if "ms" in field:
-                field = field.strip()
+            if field == "" or field == "+++++" or field == "+++":
+                splitted[i] = "0"
+
+            if "us" in field:
+                splitted[i] = str(int(field[:-2]) / 1000) + "ms"
+            elif "ms" in field:
                 splitted[i] = str(int(field[:-2])) + "ms"
+            elif "s" in field:
+                splitted[i] = str(int(field[:-1]) * 1000) + "ms"
 
         splitted[-1] = str(splitted[-1]) + "\n"
 
@@ -216,6 +220,8 @@ class BonnieBenchmark:
         len_rows = 0
         for row in rows.split("\n"):
             if "format_version" in row:
+                continue
+            if row.strip() == "":
                 continue
 
             len_rows += 1
@@ -254,9 +260,9 @@ class BonnieBenchmark:
                 to_skip -= 1
             elif isinstance(value, str):
                 if "ms" in value:
-                    count[i] = f"{float(count[i][:-2]) / len_rows}ms"
+                    count[i] = f"{round(float(count[i][:-2]) / len_rows, 1)}ms"
             else:
-                count[i] = float(count[i]) / len_rows
+                count[i] = round(float(count[i]) / len_rows, 1)
 
     def __save(self, result, filename):
         with open(filename, "w") as f:
