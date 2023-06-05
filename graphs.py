@@ -969,6 +969,27 @@ class DeleteBenchmark:
         Df(input_file_before, input_file_after, output_image_name, title)
 
 
+class AppendBenchmark:
+    def __init__(self):
+        logging.info("Generating df graphs for append test")
+        input_file_before = "out/append/df_before_append_test.txt"
+        input_file_after = "out/append/df_after_append_test.txt"
+        output_image_name = "append_metadata_size"
+        title = "Space occupied after append test"
+
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            [FilesystemType.NILFS_DEDUP],
+        )
+
+        output_image_name = "append_metadata_size_all"
+
+        Df(input_file_before, input_file_after, output_image_name, title)
+
+
 def create_dir(dir_name: str):
     logging.debug(f"Creating directory {dir_name}")
     Path(dir_name).mkdir(parents=True, exist_ok=True)
@@ -996,6 +1017,7 @@ def main():
 
     BonnieBenchmark()
     DeleteBenchmark()
+    AppendBenchmark()
     FioBenchmark()
     DedupBenchmark()
 
