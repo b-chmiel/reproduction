@@ -276,9 +276,9 @@ class BonnieBenchmark:
                 to_skip -= 1
             elif isinstance(value, str):
                 if "ms" in value:
-                    count[i] = f"{round(float(count[i][:-2]) / len_rows, 1)}ms"
+                    count[i] = f"{round(float(count[i][:-2]) / (len_rows + 1), 1)}ms"
             else:
-                count[i] = round(float(count[i]) / len_rows, 1)
+                count[i] = round(float(count[i]) / (len_rows + 1), 1)
 
     def __save(self, result, filename):
         with open(filename, "w") as f:
