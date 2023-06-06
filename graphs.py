@@ -593,8 +593,11 @@ class FioBenchmark:
             for file in files:
                 if "average" in file:
                     logging.info(f"Processing fio result file: {file}")
-                    self.__process(os.path.join(subdir, file))
-                    self.__process_without_dedup(os.path.join(subdir, file))
+                    try:
+                        self.__process(os.path.join(subdir, file))
+                        self.__process_without_dedup(os.path.join(subdir, file))
+                    except Exception:
+                        logging.warning(f"Failed to process {file}")
 
     def __process(self, file_path: str):
         xx = []
@@ -609,7 +612,8 @@ class FioBenchmark:
                     throughput = int(splitted_line[1]) / 1000  # in megabytes / s
                     yy.append(throughput)
                 elif len(splitted_line) == 6:
-                    xx.append(splitted_line[5].split("_")[0])
+                    filesystem_name = splitted_line[5].split("_")[0]
+                    xx.append(filesystem_name)
 
         self.__plot(xx, yy, file_path)
 
@@ -619,7 +623,7 @@ class FioBenchmark:
         test_name = " ".join(file_path.split("/")[-1].split(".")[0].split("_")[:3])
         title = f"I/O Bandwidth for {test_name}"
         xlabel = "File system"
-        ylabel = "Throughput (MB/s)"
+        ylabel = "Bandwidth (MB/s)"
         filename = f"{'_'.join(test_name.split(' '))}_average_bandwidth_all"
         p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
         p.plot()
@@ -656,7 +660,7 @@ class FioBenchmark:
         test_name = " ".join(file_path.split("/")[-1].split(".")[0].split("_")[:3])
         title = f"I/O Bandwidth for {test_name}"
         xlabel = "File system"
-        ylabel = "Throughput (MB/s)"
+        ylabel = "Bandwidth (MB/s)"
         filename = f"{'_'.join(test_name.split(' '))}_average_bandwidth"
         p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
         p.plot()
@@ -668,10 +672,10 @@ class FioBenchmark:
         logging.info("Generating df graphs for fio tests")
         out_dir = "out/fio"
 
-        input_file_before = out_dir + "/df_before_fio_file_append_read_test.txt"
-        input_file_after = out_dir + "/df_after_fio_file_append_read_test.txt"
-        output_image_name = "fio_file_append_read_metadata_size"
-        title = "Space occupied after fio append read test"
+        input_file_before = out_dir + "/df_before_fio_append_read_test.txt"
+        input_file_after = out_dir + "/df_after_fio_append_read_test.txt"
+        output_image_name = "fio_append_read_metadata_size"
+        title = "Space occupied after append read test"
         Df(
             input_file_before,
             input_file_after,
@@ -680,12 +684,12 @@ class FioBenchmark:
             [FilesystemType.NILFS_DEDUP],
         )
 
-        output_image_name = "fio_file_append_read_metadata_size_all"
+        output_image_name = "fio_append_read_metadata_size_all"
         Df(input_file_before, input_file_after, output_image_name, title)
 
-        input_file_before = out_dir + "/df_before_fio_file_append_write_test.txt"
-        input_file_after = out_dir + "/df_after_fio_file_append_write_test.txt"
-        output_image_name = "fio_file_append_write_metadata_size"
+        input_file_before = out_dir + "/df_before_fio_append_write_test.txt"
+        input_file_after = out_dir + "/df_after_fio_append_write_test.txt"
+        output_image_name = "fio_append_write_metadata_size"
         title = "Space occupied after fio append write test"
         Df(
             input_file_before,
@@ -695,7 +699,7 @@ class FioBenchmark:
             [FilesystemType.NILFS_DEDUP],
         )
 
-        output_image_name = "fio_file_append_write_metadata_size_all"
+        output_image_name = "fio_append_write_metadata_size_all"
         Df(input_file_before, input_file_after, output_image_name, title)
 
         input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
@@ -748,6 +752,8 @@ class FioBenchmark:
         ioengine = config["global"]["ioengine"]
         randseed = int(config["global"]["randseed"])
         allrandrepeat = "Yes" if config["global"]["allrandrepeat"] == "1" else "No"
+        fsync_on_close = "Yes" if config["global"]["fsync_on_close"] == "1" else "No"
+        end_fsync = "Yes" if config["global"]["end_fsync"] == "1" else "No"
 
         df = pd.DataFrame(
             {
@@ -760,6 +766,8 @@ class FioBenchmark:
                     "Ramp time",
                     "Runtime",
                     "File size",
+                    "Fsync on close",
+                    "End fsync",
                 ],
                 "Value": [
                     randseed,
@@ -770,6 +778,8 @@ class FioBenchmark:
                     ramp_size,
                     runtime,
                     size,
+                    fsync_on_close,
+                    end_fsync,
                 ],
             },
         )
@@ -777,7 +787,9 @@ class FioBenchmark:
         return df
 
     def __test_configuration_export(self, df: pd.DataFrame):
-        filename = f"{GRAPHS_OUTPUT_DIR}/tex/fio_configuration.tex"
+        directory = f"{GRAPHS_OUTPUT_DIR}/tex"
+        create_dir(directory)
+        filename = f"{directory}/fio_configuration.tex"
         logging.info(f"Saving fio config summary as {filename}")
         df.to_latex(filename, index=False)
 

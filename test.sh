@@ -58,7 +58,7 @@ export -f generate_gnuplot
 
 main() {
 	file_systems=('btrfs' 'copyfs' 'nilfs' 'nilfs-dedup' 'waybackfs')
-	fio_tests=('file_append_read_test' 'file_append_write_test' 'random_read_test' 'random_write_test')
+	fio_tests=('random_read_test' 'random_write_test' 'append_read_test' 'append_write_test')
 
 	mkdir -pv $LOG_DIR
 
