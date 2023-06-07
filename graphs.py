@@ -1,25 +1,48 @@
 #!/usr/bin/env python3
 
 from enum import Enum
+import subprocess
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
-import subprocess
+import shutil
 import os
 from numbers import Number
 from collections import OrderedDict
 import logging
 import pandas as pd
 import configparser
-import matplotlib.ticker as mtick
 
 
 class FilesystemType(Enum):
+    def __str__(self):
+        return str(self.value)
+
     BTRFS = "btrfs"
     COPYFS = "copyfs"
     NILFS = "nilfs"
     NILFS_DEDUP = "nilfs-dedup"
     WAYBACKFS = "waybackfs"
+
+
+class ToolName(Enum):
+    def __str__(self):
+        return str(self.value)
+
+    BONNIE = "bonnie"
+    FIO = "fio"
+    DEDUP = "dedup"
+    APPEND = "append"
+    DELETE = "delete"
+
+
+class FileExportType(Enum):
+    def __str__(self):
+        return str(self.value)
+
+    SVG = "svg"
+    JPG = "jpg"
+    TEX = "tex"
 
 
 FS_MOUNT_POINTS = {
@@ -30,22 +53,19 @@ FS_MOUNT_POINTS = {
     FilesystemType.WAYBACKFS: "/dev/sda1",
 }
 
-OUTPUT_DIR = "./output"
-GRAPHS_OUTPUT_DIR = OUTPUT_DIR + "/graphs"
-BONNIE_OUTPUT_DIR = OUTPUT_DIR + "/bonnie"
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = CURRENT_DIR + "/logs"
+OUTPUT_DIR = CURRENT_DIR + "/output"
+GRAPHS_OUTPUT_DIR = f"{OUTPUT_DIR}/graphs"
+BONNIE_OUTPUT_DIR = f"{OUTPUT_DIR}/{ToolName.BONNIE}"
 
-FIO_CONFIG = "./tests/fio-job.cfg"
-BONNIE_CONFIG = "./tests/test_env.sh"
-
-
-class PlotExportType(Enum):
-    SVG = "svg"
-    JPG = "jpg"
+FIO_CONFIG = CURRENT_DIR + "/tests/fio-job.cfg"
+BONNIE_CONFIG = CURRENT_DIR + "/tests/test_env.sh"
 
 
 class BarPlot:
-    out_dir_jpg = f"{GRAPHS_OUTPUT_DIR}/{PlotExportType.JPG.value}"
-    out_dir_svg = f"{GRAPHS_OUTPUT_DIR}/{PlotExportType.SVG.value}"
+    out_dir_jpg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.JPG}"
+    out_dir_svg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.SVG}"
 
     def __init__(
         self,
@@ -55,6 +75,7 @@ class BarPlot:
         ylabel: str,
         title: str,
         filename: str,
+        tool_name: ToolName,
     ):
         self.x = x
         self.y = y
@@ -62,12 +83,14 @@ class BarPlot:
         self.ylabel = ylabel
         self.title = title
         self.filename = filename
+        self.out_dir_jpg += f"/{tool_name}"
+        self.out_dir_svg += f"/{tool_name}"
         create_dir(self.out_dir_jpg)
         create_dir(self.out_dir_svg)
 
     def plot(self):
-        out_jpg = f"{self.out_dir_jpg}/{self.filename}.{PlotExportType.JPG.value}"
-        out_svg = f"{self.out_dir_svg}/{self.filename}.{PlotExportType.SVG.value}"
+        out_jpg = f"{self.out_dir_jpg}/{self.filename}.{FileExportType.JPG}"
+        out_svg = f"{self.out_dir_svg}/{self.filename}.{FileExportType.SVG}"
 
         logging.info(f"Generating BarPlot: {out_jpg}, {out_svg}")
         plt.bar(np.arange(len(self.y)), self.y, color="blue", edgecolor="black")
@@ -80,8 +103,8 @@ class BarPlot:
         plt.cla()
 
     def plot_percentage(self):
-        out_jpg = f"{self.out_dir_jpg}/{self.filename}.{PlotExportType.JPG.value}"
-        out_svg = f"{self.out_dir_svg}/{self.filename}.{PlotExportType.SVG.value}"
+        out_jpg = f"{self.out_dir_jpg}/{self.filename}.{FileExportType.JPG}"
+        out_svg = f"{self.out_dir_svg}/{self.filename}.{FileExportType.SVG}"
 
         logging.info(f"Generating BarPlot: {out_jpg}, {out_svg}")
         plt.bar(np.arange(len(self.y)), self.y, color="blue", edgecolor="black")
@@ -93,6 +116,22 @@ class BarPlot:
         plt.savefig(out_jpg, dpi=300)
         plt.savefig(out_svg)
         plt.cla()
+
+
+class TexTable:
+    def __init__(
+        self, df: pd.DataFrame, name: str, tool_name: ToolName, with_index: bool = True
+    ):
+        self.df = df
+        self.name = name
+        self.with_index = with_index
+        self.output_dir = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.TEX}/{tool_name}"
+        create_dir(self.output_dir)
+
+    def export(self):
+        filename = f"{self.output_dir}/{self.name}.{FileExportType.TEX}"
+        logging.info(f"Exporting latex table to {filename}")
+        self.df.to_latex(filename, index=self.with_index)
 
 
 class Df:
@@ -114,6 +153,7 @@ class Df:
         input_file_after,
         output_image,
         title,
+        tool_name: ToolName,
         exclude_fs: list[FilesystemType] = [],
     ):
         self.input_file_before = input_file_before
@@ -123,7 +163,7 @@ class Df:
         self.exclude_fs = exclude_fs
 
         result = self.__parse()
-        self.__plot(result, self.title)
+        self.__plot(result, self.title, tool_name)
 
     def __parse(self):
         result = []
@@ -135,15 +175,15 @@ class Df:
             after = 0
             df_line_start = FS_MOUNT_POINTS[path]
             try:
-                with open(f"fs/{path.value}/{self.input_file_before}") as f:
+                with open(f"fs/{path}/{self.input_file_before}") as f:
                     before = self.__df_results_read_file(f, df_line_start)
 
-                with open(f"fs/{path.value}/{self.input_file_after}") as f:
+                with open(f"fs/{path}/{self.input_file_after}") as f:
                     after = self.__df_results_read_file(f, df_line_start)
-                result.append(self.__DfResult(before, after, path.value))
+                result.append(self.__DfResult(before, after, str(path)))
 
             except FileNotFoundError:
-                logging.warning(f"Cannot read df file for '{path.value}'. Skipping")
+                logging.warning(f"Cannot read df file for '{path}'. Skipping")
 
         return result
 
@@ -156,14 +196,14 @@ class Df:
         bytes_used = [int(line.split()[2]) for line in lines]
         return sum(bytes_used) / len(bytes_used)
 
-    def __plot(self, results, title: str):
+    def __plot(self, results, title: str, tool_name: ToolName):
         x = [result.x() for result in results]
         y = [result.y() for result in results]
         xlabel = "File system"
         ylabel = "Space used (GB)"
         filename = self.output_image
 
-        p = BarPlot(x, y, xlabel, ylabel, title, filename)
+        p = BarPlot(x, y, xlabel, ylabel, title, filename, tool_name)
         p.plot()
 
 
@@ -174,6 +214,7 @@ class BonnieBenchmark:
     output_csv_all = BONNIE_OUTPUT_DIR + "/bonnie++_all.csv"
     output_html = output_html_path + "/bonnie-graphs.html"
     output_html_all = output_html_path + "/bonnie-graphs_all.html"
+    tool_name = ToolName.BONNIE
 
     input_file = "out/bonnie/out.csv"
 
@@ -199,7 +240,7 @@ class BonnieBenchmark:
             if path in exclude:
                 continue
 
-            with open(f"fs/{path.value}/{self.input_file}") as f:
+            with open(f"fs/{path}/{self.input_file}") as f:
                 bonnie_output = ""
                 while line := f.readline().rstrip():
                     bonnie_output += self.__convert_units(line)
@@ -294,9 +335,8 @@ class BonnieBenchmark:
         columns_count = 2
         for i in range(0, total_tables * columns_count, columns_count):
             df_part = df.iloc[:, i : (i + columns_count)]
-            df_part.to_latex(
-                f"{self.output_tex}/bonnie{int(i / columns_count + 1)}.tex"
-            )
+            name = f"bonnie{int(i / columns_count + 1)}"
+            TexTable(df_part, name, ToolName.BONNIE).export()
 
     def __load_csv(self, filename):
         # CSV format taken from manual page bon_csv2html(1)
@@ -521,12 +561,19 @@ class BonnieBenchmark:
             input_file_after,
             output_image_name,
             title,
+            self.tool_name,
             [FilesystemType.NILFS_DEDUP],
         )
 
         output_image_name = "bonnie_metadata_size_all"
 
-        Df(input_file_before, input_file_after, output_image_name, title)
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            self.tool_name,
+        )
 
     class __BonnieConfigType(Enum):
         SEED = "SEED"
@@ -625,7 +672,7 @@ class FioBenchmark:
         xlabel = "File system"
         ylabel = "Bandwidth (MB/s)"
         filename = f"{'_'.join(test_name.split(' '))}_average_bandwidth_all"
-        p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
+        p = BarPlot(xx, yy, xlabel, ylabel, title, filename, self.tool_name)
         p.plot()
 
     def __process_without_dedup(self, file_path: str):
@@ -662,7 +709,7 @@ class FioBenchmark:
         xlabel = "File system"
         ylabel = "Bandwidth (MB/s)"
         filename = f"{'_'.join(test_name.split(' '))}_average_bandwidth"
-        p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
+        p = BarPlot(xx, yy, xlabel, ylabel, title, filename, self.tool_name)
         p.plot()
 
     def __does_list_contain_digit(self, list):
@@ -681,11 +728,18 @@ class FioBenchmark:
             input_file_after,
             output_image_name,
             title,
+            self.tool_name,
             [FilesystemType.NILFS_DEDUP],
         )
 
         output_image_name = "fio_append_read_metadata_size_all"
-        Df(input_file_before, input_file_after, output_image_name, title)
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            self.tool_name,
+        )
 
         input_file_before = out_dir + "/df_before_fio_append_write_test.txt"
         input_file_after = out_dir + "/df_after_fio_append_write_test.txt"
@@ -696,11 +750,18 @@ class FioBenchmark:
             input_file_after,
             output_image_name,
             title,
+            self.tool_name,
             [FilesystemType.NILFS_DEDUP],
         )
 
         output_image_name = "fio_append_write_metadata_size_all"
-        Df(input_file_before, input_file_after, output_image_name, title)
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            self.tool_name,
+        )
 
         input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
         input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
@@ -711,11 +772,18 @@ class FioBenchmark:
             input_file_after,
             output_image_name,
             title,
+            self.tool_name,
             [FilesystemType.NILFS_DEDUP],
         )
 
         output_image_name = "fio_random_read_metadata_size_all"
-        Df(input_file_before, input_file_after, output_image_name, title)
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            self.tool_name,
+        )
 
         input_file_before = out_dir + "/df_before_fio_random_write_test.txt"
         input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
@@ -726,11 +794,18 @@ class FioBenchmark:
             input_file_after,
             output_image_name,
             title,
+            self.tool_name,
             [FilesystemType.NILFS_DEDUP],
         )
 
         output_image_name = "fio_random_write_metadata_size_all"
-        Df(input_file_before, input_file_after, output_image_name, title)
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            self.tool_name,
+        )
 
     def __test_configuration(self):
         config = self.__test_configuration_read()
@@ -787,11 +862,8 @@ class FioBenchmark:
         return df
 
     def __test_configuration_export(self, df: pd.DataFrame):
-        directory = f"{GRAPHS_OUTPUT_DIR}/tex"
-        create_dir(directory)
-        filename = f"{directory}/fio_configuration.tex"
-        logging.info(f"Saving fio config summary as {filename}")
-        df.to_latex(filename, index=False)
+        name = "fio_configuration"
+        TexTable(df, name, ToolName.FIO, with_index=False).export()
 
 
 class DfSize:
@@ -829,7 +901,7 @@ class DedupDf:
         self.tool_name = tool_name
         self.display_tool_name = display_tool_name
 
-        self.out_dir = f"fs/{fs_type.value}/out/dedup"
+        self.out_dir = f"fs/{fs_type}/out/dedup"
         for _, _, files in os.walk(self.out_dir):
             for file in files:
                 if tool_name in file:
@@ -871,7 +943,7 @@ class DedupDf:
             xx.append(x)
             yy.append(y)
 
-        p = BarPlot(xx, yy, xlabel, ylabel, title, filename)
+        p = BarPlot(xx, yy, xlabel, ylabel, title, filename, ToolName.DEDUP)
         p.plot_percentage()
 
     def sort_by_size_without_postfix(self, key):
@@ -973,12 +1045,19 @@ class DeleteBenchmark:
             input_file_after,
             output_image_name,
             title,
+            ToolName.DELETE,
             [FilesystemType.NILFS_DEDUP],
         )
 
         output_image_name = "delete_metadata_size_all"
 
-        Df(input_file_before, input_file_after, output_image_name, title)
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            ToolName.DELETE,
+        )
 
 
 class AppendBenchmark:
@@ -994,12 +1073,19 @@ class AppendBenchmark:
             input_file_after,
             output_image_name,
             title,
+            ToolName.APPEND,
             [FilesystemType.NILFS_DEDUP],
         )
 
         output_image_name = "append_metadata_size_all"
 
-        Df(input_file_before, input_file_after, output_image_name, title)
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            ToolName.APPEND,
+        )
 
 
 def create_dir(dir_name: str):
@@ -1007,14 +1093,26 @@ def create_dir(dir_name: str):
     Path(dir_name).mkdir(parents=True, exist_ok=True)
 
 
+def remove_dir(dir_name: str):
+    logging.debug(f"Removing directory {dir_name}")
+    try:
+        shutil.rmtree(dir_name)
+    except FileNotFoundError:
+        logging.debug(f"Directory {dir_name} does not exist, skipping deletion")
+
+
 def configure_logging():
     logging.basicConfig(
-        level=logging.INFO,
-        handlers=[logging.FileHandler("logs/graphs.log"), logging.StreamHandler()],
+        level=logging.DEBUG,
+        handlers=[
+            logging.FileHandler(f"{LOG_DIR}/graphs.log"),
+            logging.StreamHandler(),
+        ],
     )
 
 
 def create_output_dirs():
+    create_dir(LOG_DIR)
     create_dir(OUTPUT_DIR)
     create_dir(GRAPHS_OUTPUT_DIR)
     create_dir(BONNIE_OUTPUT_DIR)

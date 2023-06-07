@@ -16,8 +16,9 @@
 - `bash`
 - `bonnie++` - bon_csv2html script for bonnie graph creation
 - `python` - parsing results and creating graphs
+- `fio`, `gnuplot` - fio2gnuplot script
 
 ## Running
 
 - `make boxes` - generate and load custom vagrant boxes with all dependencies
-- `make test` - run tests using `__test_template*` files
+- `make test` - run tests
