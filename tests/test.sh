@@ -42,64 +42,64 @@ fio_test() {
 
     mkdir -pv $DIR
 
+    # mount_fs
+    # df >> $DIR/df_before_fio_random_read_test.txt
+    # pushd $DESTINATION
+    #     fio $CFG_FILE --section random_read_test
+    #     mv *.log $DIR/
+    # popd
+    # remount_fs
+    # df >> $DIR/df_after_fio_random_read_test.txt
+    # destroy_fs
+
+    # mount_fs
+    # df >> $DIR/df_before_fio_random_write_test.txt
+    # pushd $DESTINATION
+    #     fio $CFG_FILE --section random_write_test
+    #     mv *.log $DIR/
+    # popd
+    # remount_fs
+    # df >> $DIR/df_after_fio_random_write_test.txt
+    # destroy_fs
+
+    # mount_fs
+    # df >> $DIR/df_before_fio_append_read_test.txt
+    # pushd $DESTINATION
+    #     fio $CFG_FILE --section append_read_test
+    #     mv *.log $DIR/
+    # popd
+    # remount_fs
+    # df >> $DIR/df_after_fio_append_read_test.txt
+    # destroy_fs
+
+    # mount_fs
+    # df >> $DIR/df_before_fio_append_write_test.txt
+    # pushd $DESTINATION
+    #     fio $CFG_FILE --section append_write_test
+    #     mv *.log $DIR/
+    # popd
+    # remount_fs
+    # df >> $DIR/df_after_fio_append_write_test.txt
+    # destroy_fs
+
     mount_fs
-    df >> $DIR/df_before_fio_random_read_test.txt
+    df >> $DIR/df_before_fio_sequential_read_test.txt
     pushd $DESTINATION
-        fio $CFG_FILE --section random_read_test
+        fio $CFG_FILE --section sequential_read_test
         mv *.log $DIR/
     popd
     remount_fs
-    df >> $DIR/df_after_fio_random_read_test.txt
+    df >> $DIR/df_after_fio_sequential_read_test.txt
     destroy_fs
 
     mount_fs
-    df >> $DIR/df_before_fio_random_write_test.txt
+    df >> $DIR/df_before_fio_sequential_write_test.txt
     pushd $DESTINATION
-        fio $CFG_FILE --section random_write_test
+        fio $CFG_FILE --section sequential_write_test
         mv *.log $DIR/
     popd
     remount_fs
-    df >> $DIR/df_after_fio_random_write_test.txt
-    destroy_fs
-
-    mount_fs
-    df >> $DIR/df_before_fio_append_read_test.txt
-    pushd $DESTINATION
-        fio $CFG_FILE --section append_read_test
-        mv *.log $DIR/
-    popd
-    remount_fs
-    df >> $DIR/df_after_fio_append_read_test.txt
-    destroy_fs
-
-    mount_fs
-    df >> $DIR/df_before_fio_append_write_test.txt
-    pushd $DESTINATION
-        fio $CFG_FILE --section append_write_test
-        mv *.log $DIR/
-    popd
-    remount_fs
-    df >> $DIR/df_after_fio_append_write_test.txt
-    destroy_fs
-
-    mount_fs
-    df >> $DIR/df_before_fio_standard_read_test.txt
-    pushd $DESTINATION
-        fio $CFG_FILE --section standard_read_test
-        mv *.log $DIR/
-    popd
-    remount_fs
-    df >> $DIR/df_after_fio_standard_read_test.txt
-    destroy_fs
-
-    mount_fs
-    df >> $DIR/df_before_fio_standard_write_test.txt
-    pushd $DESTINATION
-        fio $CFG_FILE --section standard_write_test
-        mv *.log $DIR/
-    popd
-    remount_fs
-    df >> $DIR/df_after_fio_standard_write_test.txt
+    df >> $DIR/df_after_fio_sequential_write_test.txt
     destroy_fs
 }
 

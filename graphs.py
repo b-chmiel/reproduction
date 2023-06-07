@@ -637,8 +637,8 @@ class FioBenchmark:
         "random_write_test",
         "append_read_test",
         "append_write_test",
-        "standard_read_test",
-        "standard_write_test",
+        "sequential_read_test",
+        "sequential_write_test",
     ]
 
     def __init__(self):
@@ -895,10 +895,10 @@ class FioBenchmark:
             self.tool_name,
         )
 
-        input_file_before = out_dir + "/df_before_fio_standard_read_test.txt"
-        input_file_after = out_dir + "/df_after_fio_standard_read_test.txt"
-        output_image_name = "fio_standard_read_metadata_size"
-        title = "Space occupied after fio read test"
+        input_file_before = out_dir + "/df_before_fio_sequential_read_test.txt"
+        input_file_after = out_dir + "/df_after_fio_sequential_read_test.txt"
+        output_image_name = "fio_sequential_read_metadata_size"
+        title = "Space occupied after sequential read test"
         Df(
             input_file_before,
             input_file_after,
@@ -908,7 +908,7 @@ class FioBenchmark:
             [FilesystemType.NILFS_DEDUP],
         )
 
-        output_image_name = "fio_standard_read_metadata_size_all"
+        output_image_name = "fio_sequential_read_metadata_size_all"
         Df(
             input_file_before,
             input_file_after,
@@ -917,10 +917,10 @@ class FioBenchmark:
             self.tool_name,
         )
 
-        input_file_before = out_dir + "/df_before_fio_standard_write_test.txt"
-        input_file_after = out_dir + "/df_after_fio_standard_write_test.txt"
-        output_image_name = "fio_standard_write_metadata_size"
-        title = "Space occupied after fio write test"
+        input_file_before = out_dir + "/df_before_fio_sequential_write_test.txt"
+        input_file_after = out_dir + "/df_after_fio_sequential_write_test.txt"
+        output_image_name = "fio_sequential_write_metadata_size"
+        title = "Space occupied after sequential write test"
         Df(
             input_file_before,
             input_file_after,
@@ -930,7 +930,7 @@ class FioBenchmark:
             [FilesystemType.NILFS_DEDUP],
         )
 
-        output_image_name = "fio_standard_write_metadata_size_all"
+        output_image_name = "fio_sequential_write_metadata_size_all"
         Df(
             input_file_before,
             input_file_after,
