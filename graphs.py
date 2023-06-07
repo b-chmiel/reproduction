@@ -1033,7 +1033,7 @@ class DedupDf:
         self.out_dir = f"fs/{fs_type}/out/dedup"
         for _, _, files in os.walk(self.out_dir):
             for file in files:
-                if tool_name in file:
+                if f"_deduplication_{tool_name}" in file:
                     self.files.append(self.DedupDfFile(self.out_dir, file, fs_type))
         self.__generate_graphs_dedup_ratio()
         self.__generate_graphs_data_reduction()
@@ -1144,8 +1144,116 @@ class DedupDf:
             return f"""DedupDfFile: {{filename = {self.filename}, prog_name = {self.prog_name}, file_size = {self.file_size}, df_size = {{{self.df_size}}}}}"""
 
 
+class ResourceUtilization:
+    def __init__(
+        self,
+        fs_type: FilesystemType,
+        tool_name: str,
+        display_tool_name: str,
+    ):
+        self.fs_type = fs_type
+        self.tool_name = tool_name
+        self.out_dir_jpg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.JPG}/dedup"
+        self.out_dir_svg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.SVG}/dedup"
+
+        self.display_tool_name = display_tool_name
+        self.out_dir = f"fs/{fs_type}/out/dedup"
+        self.files: list[ResourceUtilization.__ResourceUtilizationFile] = []
+        self.__parse_files()
+        if len(self.files) < 2:
+            logging.warning("Couldn't parse resource utilization files, skipping")
+            return
+        self.__combine_files()
+
+        self.__plot_elapsed_time()
+        self.__plot_memory_usage()
+
+    def __parse_files(self):
+        logging.info(f"Parsing resource utilization files in {self.out_dir}")
+        for _, _, files in os.walk(self.out_dir):
+            for file in files:
+                if f"time_{self.tool_name}_" in file:
+                    logging.debug(f"Processing {file}")
+                    self.files.append(
+                        self.__ResourceUtilizationFile(self.out_dir, file)
+                    )
+
+    class ResourceUtilizationFields:
+        def __str__(self):
+            return str(self.value)
+
+        REAL_TIME = "real-time"
+        SYSTEM_TIME = "system-time"
+        USER_TIME = "user-time"
+        MAX_MEMORY = "max-memory"
+        FILE_SIZE_M = "file-size-megabytes"
+
+    class __ResourceUtilizationFile:
+        def __init__(self, out_dir: str, filename: str):
+            self.__path = f"{out_dir}/{filename}"
+            self.df = pd.read_csv(self.__path)
+            # get this part---v v
+            # time_duperemove_64M.log
+            size = filename.split("_")[2].split(".")[0]
+            size_m = int(size[:-1])
+            self.df[ResourceUtilization.ResourceUtilizationFields.FILE_SIZE_M] = size_m
+            self.df = self.df.set_index(
+                str(ResourceUtilization.ResourceUtilizationFields.FILE_SIZE_M)
+            )
+
+    def __combine_files(self):
+        combined = pd.concat(map(lambda file: file.df, self.files))
+        self.combined = combined.sort_values(
+            ResourceUtilization.ResourceUtilizationFields.FILE_SIZE_M
+        )
+
+    def __plot_elapsed_time(self):
+        ax = self.combined[
+            [
+                ResourceUtilization.ResourceUtilizationFields.SYSTEM_TIME,
+                ResourceUtilization.ResourceUtilizationFields.USER_TIME,
+            ]
+        ].plot(
+            kind="bar",
+            stacked=True,
+            title=f"{self.display_tool_name} deduplication time elapsed",
+            xlabel="File size (megabytes)",
+            ylabel="Elapsed time (seconds)",
+        )
+        legend = ax.get_legend()
+        legend.get_texts()[0].set_text("system time")
+        legend.get_texts()[1].set_text("user time")
+        figure = ax.get_figure()
+        out = f"{self.tool_name}_time_elapsed"
+        out_jpg = f"{self.out_dir_jpg}/{out}.{FileExportType.JPG}"
+        out_svg = f"{self.out_dir_svg}/{out}.{FileExportType.SVG}"
+        figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
+        figure.savefig(out_svg, bbox_inches="tight")
+
+    def __plot_memory_usage(self):
+        ax = self.combined[
+            [ResourceUtilization.ResourceUtilizationFields.MAX_MEMORY]
+        ].plot(
+            kind="bar",
+            title=f"{self.display_tool_name} deduplication maximal memory usage",
+            xlabel="File size (megabytes)",
+            ylabel="Occupied memory (kilobytes)",
+            legend=None,
+        )
+        figure = ax.get_figure()
+        out = f"{self.tool_name}_occupied_memory"
+        out_jpg = f"{self.out_dir_jpg}/{out}.{FileExportType.JPG}"
+        out_svg = f"{self.out_dir_svg}/{out}.{FileExportType.SVG}"
+        figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
+        figure.savefig(out_svg, bbox_inches="tight")
+
+
 class DedupBenchmark:
     def __init__(self):
+        self.__df()
+        self.__resources()
+
+    def __df(self):
         DedupDf(
             fs_type=FilesystemType.NILFS_DEDUP,
             tool_name="dedup",
@@ -1155,6 +1263,21 @@ class DedupBenchmark:
             fs_type=FilesystemType.BTRFS, tool_name="dduper", display_tool_name="dduper"
         )
         DedupDf(
+            fs_type=FilesystemType.BTRFS,
+            tool_name="duperemove",
+            display_tool_name="duperemove",
+        )
+
+    def __resources(self):
+        ResourceUtilization(
+            fs_type=FilesystemType.NILFS_DEDUP,
+            tool_name="dedup",
+            display_tool_name="Nilfs dedup",
+        )
+        ResourceUtilization(
+            fs_type=FilesystemType.BTRFS, tool_name="dduper", display_tool_name="dduper"
+        )
+        ResourceUtilization(
             fs_type=FilesystemType.BTRFS,
             tool_name="duperemove",
             display_tool_name="duperemove",

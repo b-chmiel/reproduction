@@ -38,7 +38,15 @@ dedup_test() {
 	echo "Saving filesystem size after generation"
 	remount_fs
 	df > $DIR/df_before_deduplication_dedup_$GEN_SIZE.txt
-	dedup -v $LOOP_INTERFACE
+
+	TIME_FILE="${DIR}/time_nilfs-dedup_${GEN_SIZE}.log" 
+	echo "real-time,system-time,user-time,max-memory" > $TIME_FILE
+	/usr/bin/time \
+		--format='%e,%S,%U,%M' \
+		--append \
+		--output=$TIME_FILE \
+		-- \
+			dedup -v $LOOP_INTERFACE
 
 	remount_fs
 	run_gc_cleanup

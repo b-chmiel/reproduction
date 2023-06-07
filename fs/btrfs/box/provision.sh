@@ -12,7 +12,7 @@ apt_packages() {
         export DEBIAN_FRONTEND=noninteractive && \
         apt-get install -y --allow-unauthenticated wget make g++ btrfs-progs duperemove \
             git pkg-config build-essential btrfs-progs libbtrfs-dev uuid-dev markdown \
-            uuid-runtime python3-pip libsqlite3-dev
+            uuid-runtime python3-pip libsqlite3-dev time
 }
 
 bonnie() {
