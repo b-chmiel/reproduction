@@ -45,4 +45,8 @@ destroy_fs() {
 	umount_fs || true
 	rm -fv $FILESYSTEM_FILE
 	sync
+	sleep 5
+	umount_fs || true
+	rm -fv $FILESYSTEM_FILE
+	sync
 }
