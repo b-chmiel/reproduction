@@ -83,23 +83,23 @@ fio_test() {
     destroy_fs
 
     mount_fs
-    df >> $DIR/df_before_fio_read_test.txt
+    df >> $DIR/df_before_fio_standard_read_test.txt
     pushd $DESTINATION
-        fio $CFG_FILE --section read_test
+        fio $CFG_FILE --section standard_read_test
         mv *.log $DIR/
     popd
     remount_fs
-    df >> $DIR/df_after_fio_read_test.txt
+    df >> $DIR/df_after_fio_standard_read_test.txt
     destroy_fs
 
     mount_fs
-    df >> $DIR/df_before_fio_write_test.txt
+    df >> $DIR/df_before_fio_standard_write_test.txt
     pushd $DESTINATION
-        fio $CFG_FILE --section write_test
+        fio $CFG_FILE --section standard_write_test
         mv *.log $DIR/
     popd
     remount_fs
-    df >> $DIR/df_after_fio_write_test.txt
+    df >> $DIR/df_after_fio_standard_write_test.txt
     destroy_fs
 }
 

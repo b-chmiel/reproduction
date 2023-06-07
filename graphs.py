@@ -2,6 +2,8 @@
 
 from enum import Enum
 import subprocess
+from multiprocessing import Pool
+from itertools import repeat
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
@@ -621,21 +623,107 @@ class BonnieBenchmark:
         return df
 
     def __test_configuration_export(self, df):
-        filename = f"{GRAPHS_OUTPUT_DIR}/tex/bonnie_configuration.tex"
-        logging.info(f"Saving bonnie config summary as {filename}")
-        df.to_latex(filename, index=False)
+        name = "bonnie_configuration"
+        TexTable(df, name, ToolName.BONNIE, with_index=False).export()
 
 
 class FioBenchmark:
+    fio_log_dir = f"{OUTPUT_DIR}/fio/logs"
     data_dir = OUTPUT_DIR + "/fio/gnuplot"
+    tool_name = ToolName.FIO
+    log_dir = f"{LOG_DIR}/fio"
+    tests = [
+        "random_read_test",
+        "random_write_test",
+        "append_read_test",
+        "append_write_test",
+        "standard_read_test",
+        "standard_write_test",
+    ]
 
     def __init__(self):
         logging.info(f"Generating fio graphs from data dir {self.data_dir}")
+        self.__generate_fio_data_from_logs()
         self.__fio()
         self.__df()
         self.__test_configuration()
 
+    def __generate_fio_data_from_logs(self):
+        self.__copy_fio_logs()
+        self.__generate_gnuplot()
+
+    def __copy_fio_logs(self):
+        create_dir(self.fio_log_dir)
+        logging.info(f"Copying fio logs to {self.fio_log_dir}")
+
+        for filesystem in FilesystemType:
+            fio_out_dir = f"fs/{filesystem}/out/fio"
+            for subdir, _, files in os.walk(fio_out_dir):
+                log_files = list(filter(lambda f: ".log" in f, files))
+                with Pool() as pool:
+                    pool.starmap(
+                        FioBenchmark.copy_fio_log,
+                        zip(
+                            repeat(self.fio_log_dir),
+                            repeat(subdir),
+                            repeat(filesystem),
+                            log_files,
+                        ),
+                    )
+
+    def copy_fio_log(
+        fio_log_dir: str, subdir: str, filesystem: FilesystemType, file: str
+    ):
+        src = os.path.join(subdir, file)
+        dst = f"{fio_log_dir}/{filesystem}_{file}"
+        logging.debug(f"Copying fio log: {src} -> {dst}")
+        shutil.copy(src, dst)
+
+    def __generate_gnuplot(self):
+        logging.info(f"Generating gnuplot from fio logs for {self.tests}")
+        with Pool() as pool:
+            pool.starmap(
+                FioBenchmark.generate_gnuplot_for_test,
+                zip(
+                    repeat(self.data_dir),
+                    repeat(self.log_dir),
+                    repeat(self.fio_log_dir),
+                    self.tests,
+                ),
+            )
+
+    def generate_gnuplot_for_test(
+        data_dir: str, log_dir: str, fio_log_dir: str, test_name: str
+    ):
+        test_out_dir = f"{data_dir}/{test_name}"
+        remove_dir(test_out_dir)
+        create_dir(test_out_dir)
+        create_dir(log_dir)
+        log_file = f"{log_dir}/generate_fio_gnuplot_{test_name}.log"
+        logging.debug(f"Generating gnuplot for test {test_name}, log file: {log_file}")
+        f = open(log_file, "w+")
+
+        subprocess.run(
+            [
+                "fio2gnuplot",
+                "-t",
+                test_name,
+                "-d",
+                test_out_dir,
+                "-p",
+                f"*{test_name}_bw*.log",
+                "-v",
+            ],
+            stdout=f,
+            stderr=f,
+            cwd=fio_log_dir,
+        )
+        logging.debug(
+            f"Finished generating gnuplot for test {test_name}, log file: {log_file}"
+        )
+
     def __fio(self):
+        logging.info("Generating fio bandwidth graphs")
         for subdir, _, files in os.walk(self.data_dir):
             for file in files:
                 if "average" in file:
@@ -766,7 +854,7 @@ class FioBenchmark:
         input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
         input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
         output_image_name = "fio_random_read_metadata_size"
-        title = "Space occupied after fio read test"
+        title = "Space occupied after fio random read test"
         Df(
             input_file_before,
             input_file_after,
@@ -788,7 +876,7 @@ class FioBenchmark:
         input_file_before = out_dir + "/df_before_fio_random_write_test.txt"
         input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
         output_image_name = "fio_random_write_metadata_size"
-        title = "Space occupied after fio write test"
+        title = "Space occupied after fio random write test"
         Df(
             input_file_before,
             input_file_after,
@@ -799,6 +887,50 @@ class FioBenchmark:
         )
 
         output_image_name = "fio_random_write_metadata_size_all"
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            self.tool_name,
+        )
+
+        input_file_before = out_dir + "/df_before_fio_standard_read_test.txt"
+        input_file_after = out_dir + "/df_after_fio_standard_read_test.txt"
+        output_image_name = "fio_standard_read_metadata_size"
+        title = "Space occupied after fio read test"
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            self.tool_name,
+            [FilesystemType.NILFS_DEDUP],
+        )
+
+        output_image_name = "fio_standard_read_metadata_size_all"
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            self.tool_name,
+        )
+
+        input_file_before = out_dir + "/df_before_fio_standard_write_test.txt"
+        input_file_after = out_dir + "/df_after_fio_standard_write_test.txt"
+        output_image_name = "fio_standard_write_metadata_size"
+        title = "Space occupied after fio write test"
+        Df(
+            input_file_before,
+            input_file_after,
+            output_image_name,
+            title,
+            self.tool_name,
+            [FilesystemType.NILFS_DEDUP],
+        )
+
+        output_image_name = "fio_standard_write_metadata_size_all"
         Df(
             input_file_before,
             input_file_after,
@@ -820,8 +952,6 @@ class FioBenchmark:
 
     def __test_configuration_parse(self, config) -> pd.DataFrame:
         size = config["global"]["size"]
-        runtime = int(config["global"]["runtime"])
-        ramp_size = int(config["global"]["ramp_time"])
         block_size = config["global"]["blocksize"]
         iodepth = int(config["global"]["iodepth"])
         ioengine = config["global"]["ioengine"]
@@ -829,6 +959,7 @@ class FioBenchmark:
         allrandrepeat = "Yes" if config["global"]["allrandrepeat"] == "1" else "No"
         fsync_on_close = "Yes" if config["global"]["fsync_on_close"] == "1" else "No"
         end_fsync = "Yes" if config["global"]["end_fsync"] == "1" else "No"
+        loops = int(config["global"]["loops"])
 
         df = pd.DataFrame(
             {
@@ -838,11 +969,10 @@ class FioBenchmark:
                     "I/O engine",
                     "Concurrent I/O units",
                     "Block size",
-                    "Ramp time",
-                    "Runtime",
                     "File size",
                     "Fsync on close",
                     "End fsync",
+                    "Test runs",
                 ],
                 "Value": [
                     randseed,
@@ -850,11 +980,10 @@ class FioBenchmark:
                     ioengine,
                     iodepth,
                     block_size,
-                    ramp_size,
-                    runtime,
                     size,
                     fsync_on_close,
                     end_fsync,
+                    loops,
                 ],
             },
         )
@@ -1103,7 +1232,7 @@ def remove_dir(dir_name: str):
 
 def configure_logging():
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         handlers=[
             logging.FileHandler(f"{LOG_DIR}/graphs.log"),
             logging.StreamHandler(),
