@@ -44,7 +44,11 @@ duperemove_test() {
 	echo "################################################################################"
 
 	setup $TOOL_NAME $GEN_SIZE
-	duperemove -dhrv $DESTINATION/
+	duperemove \
+		-dhrv \
+		-b 4096 \
+		--dedupe-options=partial,same \
+		$DESTINATION/
 	teardown $TOOL_NAME $GEN_SIZE
 }
 
