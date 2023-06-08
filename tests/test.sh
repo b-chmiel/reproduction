@@ -42,25 +42,25 @@ fio_test() {
 
     mkdir -pv $DIR
 
-    # mount_fs
-    # df >> $DIR/df_before_fio_random_read_test.txt
-    # pushd $DESTINATION
-    #     fio $CFG_FILE --section random_read_test
-    #     mv *.log $DIR/
-    # popd
-    # remount_fs
-    # df >> $DIR/df_after_fio_random_read_test.txt
-    # destroy_fs
+    mount_fs
+    df >> $DIR/df_before_fio_random_read_test.txt
+    pushd $DESTINATION
+        fio $CFG_FILE --section random_read_test
+        mv *.log $DIR/
+    popd
+    remount_fs
+    df >> $DIR/df_after_fio_random_read_test.txt
+    destroy_fs
 
-    # mount_fs
-    # df >> $DIR/df_before_fio_random_write_test.txt
-    # pushd $DESTINATION
-    #     fio $CFG_FILE --section random_write_test
-    #     mv *.log $DIR/
-    # popd
-    # remount_fs
-    # df >> $DIR/df_after_fio_random_write_test.txt
-    # destroy_fs
+    mount_fs
+    df >> $DIR/df_before_fio_random_write_test.txt
+    pushd $DESTINATION
+        fio $CFG_FILE --section random_write_test
+        mv *.log $DIR/
+    popd
+    remount_fs
+    df >> $DIR/df_after_fio_random_write_test.txt
+    destroy_fs
 
     # mount_fs
     # df >> $DIR/df_before_fio_append_read_test.txt
@@ -170,8 +170,8 @@ main() {
 
     for i in $(seq 1 $DELETION_TEST_TRIALS); do
         bonnie_test
-        delete_test
-        append_test
+        # delete_test
+        # append_test
     done
 
     fio_test
