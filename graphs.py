@@ -1200,6 +1200,9 @@ class ResourceUtilization:
             self.df = self.df.set_index(
                 str(ResourceUtilization.ResourceUtilizationFields.FILE_SIZE_M)
             )
+            self.df[ResourceUtilization.ResourceUtilizationFields.MAX_MEMORY] = self.df[
+                ResourceUtilization.ResourceUtilizationFields.MAX_MEMORY
+            ].transform(lambda m: m / 1000)
 
     def __combine_files(self):
         combined = pd.concat(map(lambda file: file.df, self.files))
@@ -1237,15 +1240,38 @@ class ResourceUtilization:
             kind="bar",
             title=f"{self.display_tool_name} deduplication maximal memory usage",
             xlabel="File size (megabytes)",
-            ylabel="Occupied memory (kilobytes)",
+            ylabel="Occupied memory (megabytes)",
             legend=None,
         )
-        figure = ax.get_figure()
+
+        self.__plot_memory_usage_max(ax)
+
         out = f"{self.tool_name}_occupied_memory"
         out_jpg = f"{self.out_dir_jpg}/{out}.{FileExportType.JPG}"
         out_svg = f"{self.out_dir_svg}/{out}.{FileExportType.SVG}"
+        figure = ax.get_figure()
         figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
         figure.savefig(out_svg, bbox_inches="tight")
+
+    def __plot_memory_usage_max(self, ax: plt.Axes):
+        max = self.combined[
+            ResourceUtilization.ResourceUtilizationFields.MAX_MEMORY
+        ].max()
+        xmin, xmax = ax.get_xlim()
+
+        ax.hlines(y=max, xmin=xmin, xmax=xmax, color="red", linewidth=1)
+        _, ymax = ax.get_ylim()
+        label_position = max / ymax + 0.02
+        ax.text(
+            0.88,
+            label_position,
+            f"Maximum = {max:.1f}M",
+            ha="right",
+            va="center",
+            transform=ax.transAxes,
+            size=8,
+            zorder=3,
+        )
 
 
 class DedupBenchmark:
@@ -1271,7 +1297,7 @@ class DedupBenchmark:
     def __resources(self):
         ResourceUtilization(
             fs_type=FilesystemType.NILFS_DEDUP,
-            tool_name="dedup",
+            tool_name="nilfs-dedup",
             display_tool_name="Nilfs dedup",
         )
         ResourceUtilization(
