@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from enum import Enum
+from enum import Enum, StrEnum, auto
 import subprocess
 from multiprocessing import Pool
 from itertools import repeat
@@ -65,6 +65,11 @@ FIO_CONFIG = CURRENT_DIR + "/tests/fio-job.cfg"
 BONNIE_CONFIG = CURRENT_DIR + "/tests/test_env.sh"
 
 
+class PlotUnit(StrEnum):
+    PERCENT = auto()
+    SCALAR = auto()
+
+
 class BarPlot:
     out_dir_jpg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.JPG}"
     out_dir_svg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.SVG}"
@@ -78,6 +83,7 @@ class BarPlot:
         title: str,
         filename: str,
         tool_name: ToolName,
+        plot_unit: PlotUnit,
     ):
         self.x = x
         self.y = y
@@ -85,38 +91,47 @@ class BarPlot:
         self.ylabel = ylabel
         self.title = title
         self.filename = filename
+        self.plot_unit = plot_unit
+
         self.out_dir_jpg += f"/{tool_name}"
         self.out_dir_svg += f"/{tool_name}"
         create_dir(self.out_dir_jpg)
         create_dir(self.out_dir_svg)
+        self.out_jpg = f"{self.out_dir_jpg}/{self.filename}.{FileExportType.JPG}"
+        self.out_svg = f"{self.out_dir_svg}/{self.filename}.{FileExportType.SVG}"
 
-    def plot(self):
-        out_jpg = f"{self.out_dir_jpg}/{self.filename}.{FileExportType.JPG}"
-        out_svg = f"{self.out_dir_svg}/{self.filename}.{FileExportType.SVG}"
+        self.__plot()
 
-        logging.info(f"Generating BarPlot: {out_jpg}, {out_svg}")
+    def __plot(self):
+        logging.info(
+            f"Generating {self.plot_unit} BarPlot: {self.out_jpg}, {self.out_svg}"
+        )
+        if self.plot_unit == PlotUnit.SCALAR:
+            self.__plot_scalar()
+        elif self.plot_unit == PlotUnit.PERCENT:
+            self.__plot_percent()
+        else:
+            raise RuntimeError(f"Unrecognized plot unit: {self.plot_unit}")
+
+    def __plot_scalar(self):
         plt.bar(np.arange(len(self.y)), self.y, color="blue", edgecolor="black")
         plt.xticks(np.arange(len(self.y)), self.x)
         plt.xlabel(self.xlabel, fontsize=16)
         plt.ylabel(self.ylabel, fontsize=16)
         plt.title(self.title, fontsize=16)
-        plt.savefig(out_jpg, dpi=300)
-        plt.savefig(out_svg)
+        plt.savefig(self.out_jpg, dpi=300)
+        plt.savefig(self.out_svg)
         plt.cla()
 
-    def plot_percentage(self):
-        out_jpg = f"{self.out_dir_jpg}/{self.filename}.{FileExportType.JPG}"
-        out_svg = f"{self.out_dir_svg}/{self.filename}.{FileExportType.SVG}"
-
-        logging.info(f"Generating BarPlot: {out_jpg}, {out_svg}")
+    def __plot_percent(self):
         plt.bar(np.arange(len(self.y)), self.y, color="blue", edgecolor="black")
         plt.gca().set_yticklabels([f"{x:.0%}" for x in plt.gca().get_yticks()])
         plt.xticks(np.arange(len(self.y)), self.x)
         plt.xlabel(self.xlabel, fontsize=16)
         plt.ylabel(self.ylabel, fontsize=16)
         plt.title(self.title, fontsize=16)
-        plt.savefig(out_jpg, dpi=300)
-        plt.savefig(out_svg)
+        plt.savefig(self.out_jpg, dpi=300)
+        plt.savefig(self.out_svg)
         plt.cla()
 
 
@@ -136,7 +151,7 @@ class TexTable:
         self.df.to_latex(filename, index=self.with_index)
 
 
-class Df:
+class SpaceUsageDf:
     class __DfResult:
         def __init__(self, before, after, name):
             self.before = before
@@ -205,8 +220,7 @@ class Df:
         ylabel = "Space used (GB)"
         filename = self.output_image
 
-        p = BarPlot(x, y, xlabel, ylabel, title, filename, tool_name)
-        p.plot()
+        BarPlot(x, y, xlabel, ylabel, title, filename, tool_name, PlotUnit.SCALAR)
 
 
 class BonnieBenchmark:
@@ -228,7 +242,11 @@ class BonnieBenchmark:
         create_dir(self.output_html_path)
         result_all = self.__parse()
         self.__save(result_all, self.output_csv_all)
-        self.__generate_table(self.output_html_all, self.output_csv_all)
+        try:
+            self.__generate_table(self.output_html_all, self.output_csv_all)
+        except pd.errors.ParserError:
+            logging.warning(f"Failed to generate bonnie table: {self.input_file}")
+            return
 
         result = self.__parse([FilesystemType.NILFS_DEDUP])
         self.__save(result, self.output_csv)
@@ -558,7 +576,7 @@ class BonnieBenchmark:
         output_image_name = "bonnie_metadata_size"
         title = "Space occupied after Bonnie++ test"
 
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -569,7 +587,7 @@ class BonnieBenchmark:
 
         output_image_name = "bonnie_metadata_size_all"
 
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -760,8 +778,9 @@ class FioBenchmark:
         xlabel = "File system"
         ylabel = "Bandwidth (MB/s)"
         filename = f"{'_'.join(test_name.split(' '))}_average_bandwidth_all"
-        p = BarPlot(xx, yy, xlabel, ylabel, title, filename, self.tool_name)
-        p.plot()
+        BarPlot(
+            xx, yy, xlabel, ylabel, title, filename, self.tool_name, PlotUnit.SCALAR
+        )
 
     def __process_without_dedup(self, file_path: str):
         xx = []
@@ -797,8 +816,9 @@ class FioBenchmark:
         xlabel = "File system"
         ylabel = "Bandwidth (MB/s)"
         filename = f"{'_'.join(test_name.split(' '))}_average_bandwidth"
-        p = BarPlot(xx, yy, xlabel, ylabel, title, filename, self.tool_name)
-        p.plot()
+        BarPlot(
+            xx, yy, xlabel, ylabel, title, filename, self.tool_name, PlotUnit.SCALAR
+        )
 
     def __does_list_contain_digit(self, list):
         return len([s for s in list if s.isdigit()]) != 0
@@ -811,7 +831,7 @@ class FioBenchmark:
         input_file_after = out_dir + "/df_after_fio_append_read_test.txt"
         output_image_name = "fio_append_read_metadata_size"
         title = "Space occupied after append read test"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -821,7 +841,7 @@ class FioBenchmark:
         )
 
         output_image_name = "fio_append_read_metadata_size_all"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -833,7 +853,7 @@ class FioBenchmark:
         input_file_after = out_dir + "/df_after_fio_append_write_test.txt"
         output_image_name = "fio_append_write_metadata_size"
         title = "Space occupied after fio append write test"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -843,7 +863,7 @@ class FioBenchmark:
         )
 
         output_image_name = "fio_append_write_metadata_size_all"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -855,7 +875,7 @@ class FioBenchmark:
         input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
         output_image_name = "fio_random_read_metadata_size"
         title = "Space occupied after fio random read test"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -865,7 +885,7 @@ class FioBenchmark:
         )
 
         output_image_name = "fio_random_read_metadata_size_all"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -877,7 +897,7 @@ class FioBenchmark:
         input_file_after = out_dir + "/df_after_fio_random_write_test.txt"
         output_image_name = "fio_random_write_metadata_size"
         title = "Space occupied after fio random write test"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -887,7 +907,7 @@ class FioBenchmark:
         )
 
         output_image_name = "fio_random_write_metadata_size_all"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -899,7 +919,7 @@ class FioBenchmark:
         input_file_after = out_dir + "/df_after_fio_sequential_read_test.txt"
         output_image_name = "fio_sequential_read_metadata_size"
         title = "Space occupied after sequential read test"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -909,7 +929,7 @@ class FioBenchmark:
         )
 
         output_image_name = "fio_sequential_read_metadata_size_all"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -921,7 +941,7 @@ class FioBenchmark:
         input_file_after = out_dir + "/df_after_fio_sequential_write_test.txt"
         output_image_name = "fio_sequential_write_metadata_size"
         title = "Space occupied after sequential write test"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -931,7 +951,7 @@ class FioBenchmark:
         )
 
         output_image_name = "fio_sequential_write_metadata_size_all"
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -995,29 +1015,6 @@ class FioBenchmark:
         TexTable(df, name, ToolName.FIO, with_index=False).export()
 
 
-class DfSize:
-    def __init__(self, filepath: str, filesystem: FilesystemType):
-        self.filepath = filepath
-        self.filesystem = filesystem
-        line = self.__extract_mountpoint_line()
-        self.size = self.__extract_size(line)
-
-    def __extract_mountpoint_line(self):
-        with open(self.filepath) as f:
-            for line in f.readlines():
-                line = line.strip().split()
-                mount_point = line[0]
-                fs_mount_point = FS_MOUNT_POINTS[self.filesystem]
-                if fs_mount_point == mount_point:
-                    return line
-
-    def __extract_size(self, line):
-        return int(line[2])
-
-    def __repr__(self):
-        return f"""DfSize: {{filepath = {self.filepath}, filesystem = {self.filesystem}, size = {self.size}}}"""
-
-
 class DedupDf:
     def __init__(
         self,
@@ -1026,17 +1023,15 @@ class DedupDf:
         display_tool_name: str,
     ):
         logging.info("Generating df graphs from dedup tests")
-        self.files: list[self.DedupDfFile] = []
         self.tool_name = tool_name
         self.display_tool_name = display_tool_name
+        out_dir = f"fs/{fs_type}/out/dedup"
+        file_pattern = f"_deduplication_{tool_name}"
+        self.files = DfResult(out_dir, file_pattern, fs_type).files
 
-        self.out_dir = f"fs/{fs_type}/out/dedup"
-        for _, _, files in os.walk(self.out_dir):
-            for file in files:
-                if f"_deduplication_{tool_name}" in file:
-                    self.files.append(self.DedupDfFile(self.out_dir, file, fs_type))
         self.__generate_graphs_dedup_ratio()
         self.__generate_graphs_data_reduction()
+        self.__generate_graphs_expected_reclaim()
 
     def __generate_graphs_dedup_ratio(self):
         title = f"{self.display_tool_name} space reduction ratio"
@@ -1044,7 +1039,12 @@ class DedupDf:
         xlabel = "File size"
         ylabel = "Space reduction ratio"
         self.__generate_graphs(
-            title, filename, xlabel, ylabel, self.__calculate_deduplication_ratio
+            title,
+            filename,
+            xlabel,
+            ylabel,
+            self.__calculate_deduplication_ratio,
+            PlotUnit.PERCENT,
         )
 
     def __generate_graphs_data_reduction(self):
@@ -1053,10 +1053,31 @@ class DedupDf:
         xlabel = "File size"
         ylabel = "Space reduction"
         self.__generate_graphs(
-            title, filename, xlabel, ylabel, self.__calculate_data_reduction
+            title,
+            filename,
+            xlabel,
+            ylabel,
+            self.__calculate_data_reduction,
+            PlotUnit.PERCENT,
         )
 
-    def __generate_graphs(self, title, filename, xlabel, ylabel, y_func):
+    def __generate_graphs_expected_reclaim(self):
+        title = f"{self.display_tool_name} storage reclaim"
+        filename = f"{self.tool_name}_storage_reclaim"
+        xlabel = "File size (megabytes)"
+        ylabel = "Storage reclaimed (megabytes)"
+        self.__generate_graphs(
+            title,
+            filename,
+            xlabel,
+            ylabel,
+            self.__calculate_storage_reclaim,
+            PlotUnit.SCALAR,
+        )
+
+    def __generate_graphs(
+        self, title, filename, xlabel, ylabel, y_func, plot_unit: PlotUnit
+    ):
         logging.debug("Processing files for dedup tests")
         file_sizes = self.__classify_by_file_size()
         ordered_sizes = OrderedDict(
@@ -1072,8 +1093,7 @@ class DedupDf:
             xx.append(x)
             yy.append(y)
 
-        p = BarPlot(xx, yy, xlabel, ylabel, title, filename, ToolName.DEDUP)
-        p.plot_percentage()
+        BarPlot(xx, yy, xlabel, ylabel, title, filename, ToolName.DEDUP, plot_unit)
 
     def sort_by_size_without_postfix(self, key):
         size = key[0]
@@ -1086,7 +1106,7 @@ class DedupDf:
             if len(sizes[key]) > 2:
                 logging.warning("Multiple df files for the same test are not supported")
             elif len(sizes[key]) < 2:
-                if sizes[key][0].type == DedupDf.DedupDfFileType.BEFORE:
+                if sizes[key][0].type == DfFileType.BEFORE:
                     logging.warning(
                         f"Missing df after file, only before file is present: {sizes[key][0]}"
                     )
@@ -1097,7 +1117,7 @@ class DedupDf:
             return 0, 0
 
         before, after = sizes[key]
-        if before.type == DedupDf.DedupDfFileType.AFTER:
+        if before.type == DfFileType.AFTER:
             before, after = after, before
         y = y_func(before.df_size.size, after.df_size.size)
         return x, y
@@ -1117,31 +1137,69 @@ class DedupDf:
     def __calculate_data_reduction(self, before, after):
         return 1 - after / before
 
-    class DedupDfFileType(Enum):
-        BEFORE = "before"
-        AFTER = "after"
+    def __calculate_storage_reclaim(self, before, after):
+        return (before - after) / 1_000  # to mb
 
-    class DedupDfFile:
-        def __init__(self, out_dir: str, filename: str, fs_type: FilesystemType):
-            self.filename = filename
-            raw_type = filename.strip().split("_")[1]
-            if raw_type == DedupDf.DedupDfFileType.BEFORE.value:
-                self.type = DedupDf.DedupDfFileType.BEFORE
-            elif raw_type == DedupDf.DedupDfFileType.AFTER.value:
-                self.type = DedupDf.DedupDfFileType.AFTER
-            else:
-                raise Exception(
-                    f"Invalid df file type: '{raw_type}', in file: '{filename}'"
-                )
-            # match -----------------v_v
-            # df_after_deduplication_16M.txt
-            self.prog_name = filename.strip().split("_")[3]
-            self.file_size = filename.strip().split("_")[4].split(".")[0]
-            filepath = f"{out_dir}/{self.filename}"
-            self.df_size = DfSize(filepath, fs_type)
+
+class DfResult:
+    def __init__(self, out_dir: str, file_pattern: str, fs_type: FilesystemType):
+        self.out_dir = out_dir
+        self.files: list[DfFile] = []
+
+        for _, _, files in os.walk(self.out_dir):
+            for file in files:
+                if file_pattern in file:
+                    self.files.append(DfFile(self.out_dir, file, fs_type))
+
+
+class DfFile:
+    class __DfSize:
+        def __init__(self, filepath: str, filesystem: FilesystemType):
+            self.filepath = filepath
+            self.filesystem = filesystem
+            line = self.__extract_mountpoint_line()
+            self.size = self.__extract_size(line)
+
+        def __extract_mountpoint_line(self):
+            with open(self.filepath) as f:
+                for line in f.readlines():
+                    line = line.strip().split()
+                    mount_point = line[0]
+                    fs_mount_point = FS_MOUNT_POINTS[self.filesystem]
+                    if fs_mount_point == mount_point:
+                        return line
+
+        def __extract_size(self, line):
+            return int(line[2])
 
         def __repr__(self):
-            return f"""DedupDfFile: {{filename = {self.filename}, prog_name = {self.prog_name}, file_size = {self.file_size}, df_size = {{{self.df_size}}}}}"""
+            return f"""__DfSize: {{filepath = {self.filepath}, filesystem = {self.filesystem}, size = {self.size}}}"""
+
+    def __init__(self, out_dir: str, filename: str, fs_type: FilesystemType):
+        self.filename = filename
+        raw_type = filename.strip().split("_")[1]
+        if raw_type == DfFileType.BEFORE.value:
+            self.type = DfFileType.BEFORE
+        elif raw_type == DfFileType.AFTER.value:
+            self.type = DfFileType.AFTER
+        else:
+            raise Exception(
+                f"Invalid df file type: '{raw_type}', in file: '{filename}'"
+            )
+        # match -----------------v_v
+        # df_after_deduplication_16M.txt
+        self.prog_name = filename.strip().split("_")[3]
+        self.file_size = filename.strip().split("_")[4].split(".")[0]
+        filepath = f"{out_dir}/{self.filename}"
+        self.df_size = DfFile.__DfSize(filepath, fs_type)
+
+    def __repr__(self):
+        return f"""DfFile: {{filename = {self.filename}, prog_name = {self.prog_name}, file_size = {self.file_size}, df_size = {{{self.df_size}}}}}"""
+
+
+class DfFileType(Enum):
+    BEFORE = "before"
+    AFTER = "after"
 
 
 class ResourceUtilization:
@@ -1161,7 +1219,9 @@ class ResourceUtilization:
         self.files: list[ResourceUtilization.__ResourceUtilizationFile] = []
         self.__parse_files()
         if len(self.files) < 2:
-            logging.warning("Couldn't parse resource utilization files, skipping")
+            logging.warning(
+                f"Couldn't parse resource utilization files in {self.out_dir}, skipping"
+            )
             return
         self.__combine_files()
 
@@ -1318,7 +1378,7 @@ class DeleteBenchmark:
         output_image_name = "delete_metadata_size"
         title = "Space occupied after deletion test"
 
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -1329,7 +1389,7 @@ class DeleteBenchmark:
 
         output_image_name = "delete_metadata_size_all"
 
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -1346,7 +1406,7 @@ class AppendBenchmark:
         output_image_name = "append_metadata_size"
         title = "Space occupied after append test"
 
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
@@ -1357,7 +1417,7 @@ class AppendBenchmark:
 
         output_image_name = "append_metadata_size_all"
 
-        Df(
+        SpaceUsageDf(
             input_file_before,
             input_file_after,
             output_image_name,
