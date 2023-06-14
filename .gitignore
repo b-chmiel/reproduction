@@ -8,4 +8,4 @@ logs/
 fio_generate_plots_reworked.sh
 .cache/
 compile_commands.json
-output/
+output*/
