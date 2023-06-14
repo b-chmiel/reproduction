@@ -11,7 +11,7 @@ SEED=420
 FILE1=f1
 FILE2=f2
 SHARED_DIRECTORY=/mnt/work
-GEN_SIZE=128M
+GEN_SIZE=64M
 
 VALIDATION_ID=0
 
@@ -28,7 +28,7 @@ function mount_nilfs {
 rm -f $FS_BIN_FILE
 fallocate -l $FS_FILE_SIZE $FS_BIN_FILE
 losetup -P $LOOP_INTERFACE $FS_BIN_FILE
-mkfs.nilfs2 $LOOP_INTERFACE -B 16
+mkfs.nilfs2 $LOOP_INTERFACE
 nilfs-tune -i 1 $LOOP_INTERFACE
 mkdir -p $MNT_DIR
 mount -t nilfs2 $LOOP_INTERFACE $MNT_DIR

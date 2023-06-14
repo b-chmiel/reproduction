@@ -17,5 +17,6 @@ sha512sum $MNT_DIR/$FILE1 > $FILE1.sha512sum
 sha512sum $MNT_DIR/$FILE2 > $FILE2.sha512sum
 
 validate $OUTPUT_DIRECTORY
-
+run_gc_cleanup
+validate $OUTPUT_DIRECTORY
 umount_nilfs
