@@ -64,6 +64,11 @@ BONNIE_OUTPUT_DIR = f"{OUTPUT_DIR}/{ToolName.BONNIE}"
 FIO_CONFIG = CURRENT_DIR + "/tests/fio-job.cfg"
 BONNIE_CONFIG = CURRENT_DIR + "/tests/test_env.sh"
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.FileHandler(f"{LOG_DIR}/graphs.log"))
+logger.addHandler(logging.StreamHandler())
+
 
 class PlotUnit(StrEnum):
     PERCENT = auto()
@@ -103,7 +108,7 @@ class BarPlot:
         self.__plot()
 
     def __plot(self):
-        logging.info(
+        logger.info(
             f"Generating {self.plot_unit} BarPlot: {self.out_jpg}, {self.out_svg}"
         )
         if self.plot_unit == PlotUnit.SCALAR:
@@ -147,7 +152,7 @@ class TexTable:
 
     def export(self):
         filename = f"{self.output_dir}/{self.name}.{FileExportType.TEX}"
-        logging.info(f"Exporting latex table to {filename}")
+        logger.info(f"Exporting latex table to {filename}")
         self.df.to_latex(filename, index=self.with_index)
 
 
@@ -200,7 +205,7 @@ class SpaceUsageDf:
                 result.append(self.__DfResult(before, after, str(path)))
 
             except FileNotFoundError:
-                logging.warning(f"Cannot read df file for '{path}'. Skipping")
+                logger.warning(f"Cannot read df file for '{path}'. Skipping")
 
         return result
 
@@ -235,7 +240,7 @@ class BonnieBenchmark:
     input_file = "out/bonnie/out.csv"
 
     def __init__(self):
-        logging.info(
+        logger.info(
             f"Initializing bonnie graphing with input {self.input_file} and output {self.output_csv}, {self.output_html_path}"
         )
         create_dir(self.output_tex)
@@ -245,7 +250,7 @@ class BonnieBenchmark:
         try:
             self.__generate_table(self.output_html_all, self.output_csv_all)
         except pd.errors.ParserError:
-            logging.warning(f"Failed to generate bonnie table: {self.input_file}")
+            logger.warning(f"Failed to generate bonnie table: {self.input_file}")
             return
 
         result = self.__parse([FilesystemType.NILFS_DEDUP])
@@ -570,7 +575,7 @@ class BonnieBenchmark:
         return df
 
     def __df(self):
-        logging.info("Generating df graphs for bonnie")
+        logger.info("Generating df graphs for bonnie")
         input_file_before = "out/bonnie/df_before_bonnie.txt"
         input_file_after = "out/bonnie/df_after_bonnie.txt"
         output_image_name = "bonnie_metadata_size"
@@ -660,7 +665,7 @@ class FioBenchmark:
     ]
 
     def __init__(self):
-        logging.info(f"Generating fio graphs from data dir {self.data_dir}")
+        logger.info(f"Generating fio graphs from data dir {self.data_dir}")
         self.__generate_fio_data_from_logs()
         self.__fio()
         self.__df()
@@ -672,7 +677,7 @@ class FioBenchmark:
 
     def __copy_fio_logs(self):
         create_dir(self.fio_log_dir)
-        logging.info(f"Copying fio logs to {self.fio_log_dir}")
+        logger.info(f"Copying fio logs to {self.fio_log_dir}")
 
         for filesystem in FilesystemType:
             fio_out_dir = f"fs/{filesystem}/out/fio"
@@ -694,11 +699,11 @@ class FioBenchmark:
     ):
         src = os.path.join(subdir, file)
         dst = f"{fio_log_dir}/{filesystem}_{file}"
-        logging.debug(f"Copying fio log: {src} -> {dst}")
+        logger.debug(f"Copying fio log: {src} -> {dst}")
         shutil.copy(src, dst)
 
     def __generate_gnuplot(self):
-        logging.info(f"Generating gnuplot from fio logs for {self.tests}")
+        logger.info(f"Generating gnuplot from fio logs for {self.tests}")
         with Pool() as pool:
             pool.starmap(
                 FioBenchmark.generate_gnuplot_for_test,
@@ -718,7 +723,7 @@ class FioBenchmark:
         create_dir(test_out_dir)
         create_dir(log_dir)
         log_file = f"{log_dir}/generate_fio_gnuplot_{test_name}.log"
-        logging.debug(f"Generating gnuplot for test {test_name}, log file: {log_file}")
+        logger.debug(f"Generating gnuplot for test {test_name}, log file: {log_file}")
         f = open(log_file, "w+")
 
         subprocess.run(
@@ -736,21 +741,21 @@ class FioBenchmark:
             stderr=f,
             cwd=fio_log_dir,
         )
-        logging.debug(
+        logger.debug(
             f"Finished generating gnuplot for test {test_name}, log file: {log_file}"
         )
 
     def __fio(self):
-        logging.info("Generating fio bandwidth graphs")
+        logger.info("Generating fio bandwidth graphs")
         for subdir, _, files in os.walk(self.data_dir):
             for file in files:
                 if "average" in file:
-                    logging.info(f"Processing fio result file: {file}")
+                    logger.info(f"Processing fio result file: {file}")
                     try:
                         self.__process(os.path.join(subdir, file))
                         self.__process_without_dedup(os.path.join(subdir, file))
                     except Exception:
-                        logging.warning(f"Failed to process {file}")
+                        logger.warning(f"Failed to process {file}")
 
     def __process(self, file_path: str):
         xx = []
@@ -824,7 +829,7 @@ class FioBenchmark:
         return len([s for s in list if s.isdigit()]) != 0
 
     def __df(self):
-        logging.info("Generating df graphs for fio tests")
+        logger.info("Generating df graphs for fio tests")
         out_dir = "out/fio"
 
         input_file_before = out_dir + "/df_before_fio_append_read_test.txt"
@@ -966,7 +971,7 @@ class FioBenchmark:
 
     def __test_configuration_read(self):
         config = configparser.ConfigParser()
-        logging.info(f"Reading fio config from {FIO_CONFIG}")
+        logger.info(f"Reading fio config from {FIO_CONFIG}")
         config.read(FIO_CONFIG)
         return config
 
@@ -1022,7 +1027,7 @@ class DedupDf:
         tool_name: str,
         display_tool_name: str,
     ):
-        logging.info("Generating df graphs from dedup tests")
+        logger.info("Generating df graphs from dedup tests")
         self.tool_name = tool_name
         self.display_tool_name = display_tool_name
         out_dir = f"fs/{fs_type}/out/dedup"
@@ -1078,13 +1083,13 @@ class DedupDf:
     def __generate_graphs(
         self, title, filename, xlabel, ylabel, y_func, plot_unit: PlotUnit
     ):
-        logging.debug("Processing files for dedup tests")
+        logger.debug("Processing files for dedup tests")
         file_sizes = self.__classify_by_file_size()
         ordered_sizes = OrderedDict(
             sorted(file_sizes.items(), key=self.sort_by_size_without_postfix)
         )
-        logging.debug(f"Gathered file_sizes: {file_sizes}")
-        logging.debug(f"Gathered ordered_sizes: {ordered_sizes}")
+        logger.debug(f"Gathered file_sizes: {file_sizes}")
+        logger.debug(f"Gathered ordered_sizes: {ordered_sizes}")
 
         xx = []
         yy = []
@@ -1104,14 +1109,14 @@ class DedupDf:
 
         if len(sizes[key]) != 2:
             if len(sizes[key]) > 2:
-                logging.warning("Multiple df files for the same test are not supported")
+                logger.warning("Multiple df files for the same test are not supported")
             elif len(sizes[key]) < 2:
                 if sizes[key][0].type == DfFileType.BEFORE:
-                    logging.warning(
+                    logger.warning(
                         f"Missing df after file, only before file is present: {sizes[key][0]}"
                     )
                 else:
-                    logging.warning(
+                    logger.warning(
                         f"Missing df before file, only after file is present: {sizes[key][0]}"
                     )
             return 0, 0
@@ -1219,7 +1224,7 @@ class ResourceUtilization:
         self.files: list[ResourceUtilization.__ResourceUtilizationFile] = []
         self.__parse_files()
         if len(self.files) < 2:
-            logging.warning(
+            logger.warning(
                 f"Couldn't parse resource utilization files in {self.out_dir}, skipping"
             )
             return
@@ -1229,11 +1234,11 @@ class ResourceUtilization:
         self.__plot_memory_usage()
 
     def __parse_files(self):
-        logging.info(f"Parsing resource utilization files in {self.out_dir}")
+        logger.info(f"Parsing resource utilization files in {self.out_dir}")
         for _, _, files in os.walk(self.out_dir):
             for file in files:
                 if f"time_{self.tool_name}_" in file:
-                    logging.debug(f"Processing {file}")
+                    logger.debug(f"Processing {file}")
                     self.files.append(
                         self.__ResourceUtilizationFile(self.out_dir, file)
                     )
@@ -1269,6 +1274,7 @@ class ResourceUtilization:
         self.combined = combined.sort_values(
             ResourceUtilization.ResourceUtilizationFields.FILE_SIZE_M
         )
+        logger.debug(f"Combined resource utilization file: {self.combined}")
 
     def __plot_elapsed_time(self):
         ax = self.combined[
@@ -1372,7 +1378,7 @@ class DedupBenchmark:
 
 class DeleteBenchmark:
     def __init__(self):
-        logging.info("Generating df graphs for delete test")
+        logger.info("Generating df graphs for delete test")
         input_file_before = "out/delete/df_before_delete_test.txt"
         input_file_after = "out/delete/df_after_delete_test.txt"
         output_image_name = "delete_metadata_size"
@@ -1400,7 +1406,7 @@ class DeleteBenchmark:
 
 class AppendBenchmark:
     def __init__(self):
-        logging.info("Generating df graphs for append test")
+        logger.info("Generating df graphs for append test")
         input_file_before = "out/append/df_before_append_test.txt"
         input_file_after = "out/append/df_after_append_test.txt"
         output_image_name = "append_metadata_size"
@@ -1427,26 +1433,16 @@ class AppendBenchmark:
 
 
 def create_dir(dir_name: str):
-    logging.debug(f"Creating directory {dir_name}")
+    logger.debug(f"Creating directory {dir_name}")
     Path(dir_name).mkdir(parents=True, exist_ok=True)
 
 
 def remove_dir(dir_name: str):
-    logging.debug(f"Removing directory {dir_name}")
+    logger.debug(f"Removing directory {dir_name}")
     try:
         shutil.rmtree(dir_name)
     except FileNotFoundError:
-        logging.debug(f"Directory {dir_name} does not exist, skipping deletion")
-
-
-def configure_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        handlers=[
-            logging.FileHandler(f"{LOG_DIR}/graphs.log"),
-            logging.StreamHandler(),
-        ],
-    )
+        logger.debug(f"Directory {dir_name} does not exist, skipping deletion")
 
 
 def create_output_dirs():
@@ -1457,9 +1453,7 @@ def create_output_dirs():
 
 
 def main():
-    configure_logging()
-
-    logging.info("START")
+    logger.info("START")
 
     create_output_dirs()
 
@@ -1469,7 +1463,7 @@ def main():
     FioBenchmark()
     DedupBenchmark()
 
-    logging.info("END")
+    logger.info("END")
 
 
 if __name__ == "__main__":
