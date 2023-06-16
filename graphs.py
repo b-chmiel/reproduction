@@ -31,6 +31,7 @@ class ToolName(Enum):
         return str(self.value)
 
     BONNIE = "bonnie"
+    BONNIE_ALL = "bonnie-all"
     FIO = "fio"
     DEDUP = "dedup"
 
@@ -245,14 +246,16 @@ class BonnieBenchmark:
         result_all = self.__parse()
         self.__save(result_all, self.output_csv_all)
         try:
-            self.__generate_table(self.output_html_all, self.output_csv_all)
+            self.__generate_table(
+                self.output_html_all, self.output_csv_all, ToolName.BONNIE_ALL
+            )
         except pd.errors.ParserError:
             logger.warning(f"Failed to generate bonnie table: {self.input_file}")
             return
 
         result = self.__parse([FilesystemType.NILFS_DEDUP])
         self.__save(result, self.output_csv)
-        self.__generate_table(self.output_html, self.output_csv)
+        self.__generate_table(self.output_html, self.output_csv, ToolName.BONNIE)
         self.__df()
         self.__test_configuration()
 
@@ -347,7 +350,7 @@ class BonnieBenchmark:
         with open(filename, "w") as f:
             f.write(result)
 
-    def __generate_table(self, output_html, output_csv):
+    def __generate_table(self, output_html, output_csv, tool_name: ToolName):
         df = self.__load_csv(output_csv)
         df = self.__convert_df_to_multidimentional(df)
 
@@ -358,7 +361,7 @@ class BonnieBenchmark:
         for i in range(0, total_tables * columns_count, columns_count):
             df_part = df.iloc[:, i : (i + columns_count)]
             name = f"bonnie{int(i / columns_count + 1)}"
-            TexTable(df_part, name, ToolName.BONNIE).export()
+            TexTable(df_part, name, tool_name).export()
 
     def __load_csv(self, filename):
         # CSV format taken from manual page bon_csv2html(1)
@@ -1064,6 +1067,7 @@ class DedupDf:
         figure = ax.get_figure()
         out_jpg = f"{self.out_dir_jpg}/{filename}.{FileExportType.JPG}"
         out_svg = f"{self.out_dir_svg}/{filename}.{FileExportType.SVG}"
+        logger.info(f"Exporting DedupDf graphs: {out_jpg}, {out_svg}")
         figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
         figure.savefig(out_svg, bbox_inches="tight")
 
@@ -1237,6 +1241,9 @@ class DedupGnuTime:
         out_jpg = f"{self.out_dir_jpg}/{out}.{FileExportType.JPG}"
         out_svg = f"{self.out_dir_svg}/{out}.{FileExportType.SVG}"
         figure = ax.get_figure()
+        logger.info(
+            f"Exporting DedupGnuTime usage detailed graphs: {out_jpg}, {out_svg}"
+        )
         figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
         figure.savefig(out_svg, bbox_inches="tight")
 
@@ -1281,6 +1288,7 @@ class DedupGnuTime:
         out = f"{self.tool_name}_time_elapsed"
         out_jpg = f"{self.out_dir_jpg}/{out}.{FileExportType.JPG}"
         out_svg = f"{self.out_dir_svg}/{out}.{FileExportType.SVG}"
+        logger.info(f"Exporting DedupGnuTime time_elapsed graphs: {out_jpg}, {out_svg}")
         figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
         figure.savefig(out_svg, bbox_inches="tight")
 
