@@ -10,7 +10,6 @@ from pathlib import Path
 import shutil
 import os
 from numbers import Number
-from collections import OrderedDict
 import logging
 import pandas as pd
 import configparser
@@ -694,6 +693,7 @@ class FioBenchmark:
                         ),
                     )
 
+    @staticmethod
     def copy_fio_log(
         fio_log_dir: str, subdir: str, filesystem: FilesystemType, file: str
     ):
@@ -715,6 +715,7 @@ class FioBenchmark:
                 ),
             )
 
+    @staticmethod
     def generate_gnuplot_for_test(
         data_dir: str, log_dir: str, fio_log_dir: str, test_name: str
     ):
@@ -1020,19 +1021,31 @@ class FioBenchmark:
         TexTable(df, name, ToolName.FIO, with_index=False).export()
 
 
+class WhenType(StrEnum):
+    BEFORE = "before"
+    AFTER = "after"
+
+
 class DedupDf:
+    out_dir_jpg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.JPG}/dedup"
+    out_dir_svg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.SVG}/dedup"
+
     def __init__(
         self,
         fs_type: FilesystemType,
         tool_name: str,
         display_tool_name: str,
+        out_dir: str,
     ):
         logger.info("Generating df graphs from dedup tests")
         self.tool_name = tool_name
         self.display_tool_name = display_tool_name
-        out_dir = f"fs/{fs_type}/out/dedup"
+        out_dir = f"fs/{fs_type}/out/{out_dir}"
         file_pattern = f"_deduplication_{tool_name}"
-        self.files = DfResult(out_dir, file_pattern, fs_type).files
+        self.files_df = DfResult(out_dir, file_pattern, fs_type).df
+
+        create_dir(self.out_dir_jpg)
+        create_dir(self.out_dir_svg)
 
         self.__generate_graphs_dedup_ratio()
         self.__generate_graphs_data_reduction()
@@ -1084,166 +1097,112 @@ class DedupDf:
         self, title, filename, xlabel, ylabel, y_func, plot_unit: PlotUnit
     ):
         logger.debug("Processing files for dedup tests")
-        file_sizes = self.__classify_by_file_size()
-        ordered_sizes = OrderedDict(
-            sorted(file_sizes.items(), key=self.sort_by_size_without_postfix)
+        df = self.files_df.sort_values(DfResult.Schema.FILE_SIZE_MEGABYTES)
+        df = df.pivot(
+            index=DfResult.Schema.FILE_SIZE_MEGABYTES,
+            columns=DfResult.Schema.TYPE,
+            values=DfResult.Schema.SIZE,
         )
-        logger.debug(f"Gathered file_sizes: {file_sizes}")
-        logger.debug(f"Gathered ordered_sizes: {ordered_sizes}")
+        df["value"] = y_func(df[WhenType.BEFORE], df[WhenType.AFTER])
+        ax = df[["value"]].plot(
+            kind="area", title=title, xlabel=xlabel, ylabel=ylabel, legend=None
+        )
+        figure = ax.get_figure()
+        out_jpg = f"{self.out_dir_jpg}/{filename}.{FileExportType.JPG}"
+        out_svg = f"{self.out_dir_svg}/{filename}.{FileExportType.SVG}"
+        figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
+        figure.savefig(out_svg, bbox_inches="tight")
 
-        xx = []
-        yy = []
-        for entry in ordered_sizes:
-            x, y = self.__xy_for_file_size(entry, ordered_sizes, y_func)
-            xx.append(x)
-            yy.append(y)
-
-        BarPlot(xx, yy, xlabel, ylabel, title, filename, ToolName.DEDUP, plot_unit)
-
-    def sort_by_size_without_postfix(self, key):
-        size = key[0]
-        return int(size[:-1])
-
-    def __xy_for_file_size(self, key, sizes, y_func):
-        x = key
-
-        if len(sizes[key]) != 2:
-            if len(sizes[key]) > 2:
-                logger.warning("Multiple df files for the same test are not supported")
-            elif len(sizes[key]) < 2:
-                if sizes[key][0].type == DfFileType.BEFORE:
-                    logger.warning(
-                        f"Missing df after file, only before file is present: {sizes[key][0]}"
-                    )
-                else:
-                    logger.warning(
-                        f"Missing df before file, only after file is present: {sizes[key][0]}"
-                    )
-            return 0, 0
-
-        before, after = sizes[key]
-        if before.type == DfFileType.AFTER:
-            before, after = after, before
-        y = y_func(before.df_size.size, after.df_size.size)
-        return x, y
-
-    def __classify_by_file_size(self):
-        file_sizes = {}
-        for file in self.files:
-            if file.file_size in file_sizes.keys():
-                file_sizes[file.file_size].append(file)
-            else:
-                file_sizes[file.file_size] = [file]
-        return file_sizes
-
-    def __calculate_deduplication_ratio(self, before, after):
+    @staticmethod
+    def __calculate_deduplication_ratio(before, after):
         return before / after
 
-    def __calculate_data_reduction(self, before, after):
+    @staticmethod
+    def __calculate_data_reduction(before, after):
         return 1 - after / before
 
-    def __calculate_storage_reclaim(self, before, after):
+    @staticmethod
+    def __calculate_storage_reclaim(before, after):
         return (before - after) / 1_000  # to mb
 
 
 class DfResult:
-    def __init__(self, out_dir: str, file_pattern: str, fs_type: FilesystemType):
-        self.out_dir = out_dir
-        self.files: list[DfFile] = []
+    class Schema(StrEnum):
+        FS_TYPE = "fs_type"
+        SIZE = "size"
+        PROG_NAME = "prog_name"
+        TYPE = "type"
+        FILE_SIZE_MEGABYTES = "file_size_megabytes"
 
-        for _, _, files in os.walk(self.out_dir):
+    def __init__(self, out_dir: str, file_pattern: str, fs_type: FilesystemType):
+        self.df = pd.DataFrame()
+
+        for _, _, files in os.walk(out_dir):
             for file in files:
                 if file_pattern in file:
-                    self.files.append(DfFile(self.out_dir, file, fs_type))
+                    self.df = pd.concat(
+                        [self.df, DfResult.__DfFile(out_dir, file, fs_type).df]
+                    )
 
+    class __DfFile:
+        def __init__(self, out_dir: str, filename: str, fs_type: FilesystemType):
+            self.__filename = filename
+            self.__filepath = f"{out_dir}/{self.__filename}"
+            self.__fs_type = fs_type
+            self.__size = self.__extract_size()
 
-class DfFile:
-    class __DfSize:
-        def __init__(self, filepath: str, filesystem: FilesystemType):
-            self.filepath = filepath
-            self.filesystem = filesystem
+            raw_type = filename.strip().split("_")[1]
+            if raw_type == WhenType.BEFORE.value:
+                self.__type = WhenType.BEFORE
+            elif raw_type == WhenType.AFTER.value:
+                self.__type = WhenType.AFTER
+            else:
+                raise Exception(
+                    f"Invalid df file type: '{raw_type}', in file: '{filename}'"
+                )
+            # match -----------------v___v
+            # df_after_deduplication_dedup_16M.txt
+
+            self.__prog_name = filename.strip().split("_")[3]
+
+            # match -----------------------v_v
+            # df_after_deduplication_dedup_16M.txt
+            self.__file_size = filename.strip().split("_")[4].split(".")[0]
+
+            self.df = pd.DataFrame(
+                {
+                    DfResult.Schema.FS_TYPE: [self.__fs_type],
+                    DfResult.Schema.SIZE: [self.__size],
+                    DfResult.Schema.PROG_NAME: [self.__prog_name],
+                    DfResult.Schema.TYPE: [self.__type],
+                    DfResult.Schema.FILE_SIZE_MEGABYTES: [self.__file_size],
+                }
+            )
+            self.df[DfResult.Schema.FILE_SIZE_MEGABYTES] = (
+                self.df[DfResult.Schema.FILE_SIZE_MEGABYTES]
+                .str.removesuffix("M")
+                .astype("int")
+            )
+
+        def __extract_size(self):
             line = self.__extract_mountpoint_line()
-            self.size = self.__extract_size(line)
+            return int(line[2])
 
         def __extract_mountpoint_line(self):
-            with open(self.filepath) as f:
+            with open(self.__filepath) as f:
                 for line in f.readlines():
                     line = line.strip().split()
                     mount_point = line[0]
-                    fs_mount_point = FS_MOUNT_POINTS[self.filesystem]
+                    fs_mount_point = FS_MOUNT_POINTS[self.__fs_type]
                     if fs_mount_point == mount_point:
                         return line
 
-        def __extract_size(self, line):
-            return int(line[2])
-
         def __repr__(self):
-            return f"""__DfSize: {{filepath = {self.filepath}, filesystem = {self.filesystem}, size = {self.size}}}"""
-
-    def __init__(self, out_dir: str, filename: str, fs_type: FilesystemType):
-        self.filename = filename
-        raw_type = filename.strip().split("_")[1]
-        if raw_type == DfFileType.BEFORE.value:
-            self.type = DfFileType.BEFORE
-        elif raw_type == DfFileType.AFTER.value:
-            self.type = DfFileType.AFTER
-        else:
-            raise Exception(
-                f"Invalid df file type: '{raw_type}', in file: '{filename}'"
-            )
-        # match -----------------v_v
-        # df_after_deduplication_16M.txt
-        self.prog_name = filename.strip().split("_")[3]
-        self.file_size = filename.strip().split("_")[4].split(".")[0]
-        filepath = f"{out_dir}/{self.filename}"
-        self.df_size = DfFile.__DfSize(filepath, fs_type)
-
-    def __repr__(self):
-        return f"""DfFile: {{filename = {self.filename}, prog_name = {self.prog_name}, file_size = {self.file_size}, df_size = {{{self.df_size}}}}}"""
+            return f"""DfFile: {{filename = {self.__filename}, prog_name = {self.__prog_name}, file_size = {self.__file_size}}}"""
 
 
-class DfFileType(Enum):
-    BEFORE = "before"
-    AFTER = "after"
-
-
-class ResourceUtilization:
-    def __init__(
-        self,
-        fs_type: FilesystemType,
-        tool_name: str,
-        display_tool_name: str,
-    ):
-        self.fs_type = fs_type
-        self.tool_name = tool_name
-        self.out_dir_jpg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.JPG}/dedup"
-        self.out_dir_svg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.SVG}/dedup"
-
-        self.display_tool_name = display_tool_name
-        self.out_dir = f"fs/{fs_type}/out/dedup"
-        self.files: list[ResourceUtilization.__ResourceUtilizationFile] = []
-        self.__parse_files()
-        if len(self.files) < 2:
-            logger.warning(
-                f"Couldn't parse resource utilization files in {self.out_dir}, skipping"
-            )
-            return
-        self.__combine_files()
-
-        self.__plot_elapsed_time()
-        self.__plot_memory_usage()
-
-    def __parse_files(self):
-        logger.info(f"Parsing resource utilization files in {self.out_dir}")
-        for _, _, files in os.walk(self.out_dir):
-            for file in files:
-                if f"time_{self.tool_name}_" in file:
-                    logger.debug(f"Processing {file}")
-                    self.files.append(
-                        self.__ResourceUtilizationFile(self.out_dir, file)
-                    )
-
-    class ResourceUtilizationFields:
+class GnuTimeFile:
+    class Fields(Enum):
         def __str__(self):
             return str(self.value)
 
@@ -1251,66 +1210,72 @@ class ResourceUtilization:
         SYSTEM_TIME = "system-time"
         USER_TIME = "user-time"
         MAX_MEMORY = "max-memory"
-        FILE_SIZE_M = "file-size-megabytes"
+        FILE_SIZE = "file-size"
+        FILE_NAME = "file-name"
+        WHEN = "when"
 
-    class __ResourceUtilizationFile:
-        def __init__(self, out_dir: str, filename: str):
-            self.__path = f"{out_dir}/{filename}"
-            self.df = pd.read_csv(self.__path)
-            # get this part---v v
-            # time_duperemove_64M.log
-            size = filename.split("_")[2].split(".")[0]
-            size_m = int(size[:-1])
-            self.df[ResourceUtilization.ResourceUtilizationFields.FILE_SIZE_M] = size_m
-            self.df = self.df.set_index(
-                str(ResourceUtilization.ResourceUtilizationFields.FILE_SIZE_M)
-            )
-            self.df[ResourceUtilization.ResourceUtilizationFields.MAX_MEMORY] = self.df[
-                ResourceUtilization.ResourceUtilizationFields.MAX_MEMORY
-            ].transform(lambda m: m / 1000)
+    def __init__(self, path: str):
+        self.df = pd.read_csv(path)
+        self.__format()
 
-    def __combine_files(self):
-        combined = pd.concat(map(lambda file: file.df, self.files))
-        self.combined = combined.sort_values(
-            ResourceUtilization.ResourceUtilizationFields.FILE_SIZE_M
+    def __format(self):
+        self.__format_file_size()
+        self.__format_max_memory()
+
+    def __format_file_size(self):
+        self.df[GnuTimeFile.Fields.FILE_SIZE.value] = (
+            self.df[GnuTimeFile.Fields.FILE_SIZE.value]
+            .str.removesuffix("M")
+            .astype("int")
         )
-        logger.debug(f"Combined resource utilization file: {self.combined}")
+        self.df = self.df.set_index(GnuTimeFile.Fields.FILE_SIZE.value)
 
-    def __plot_elapsed_time(self):
-        ax = self.combined[
-            [
-                ResourceUtilization.ResourceUtilizationFields.SYSTEM_TIME,
-                ResourceUtilization.ResourceUtilizationFields.USER_TIME,
-            ]
-        ].plot(
-            kind="bar",
-            stacked=True,
-            title=f"{self.display_tool_name} deduplication time elapsed",
-            xlabel="File size (megabytes)",
-            ylabel="Elapsed time (seconds)",
+    def __format_max_memory(self):
+        self.df[GnuTimeFile.Fields.MAX_MEMORY.value] = (
+            self.df[GnuTimeFile.Fields.MAX_MEMORY.value] / 1000
         )
-        legend = ax.get_legend()
-        legend.get_texts()[0].set_text("system time")
-        legend.get_texts()[1].set_text("user time")
-        figure = ax.get_figure()
-        out = f"{self.tool_name}_time_elapsed"
-        out_jpg = f"{self.out_dir_jpg}/{out}.{FileExportType.JPG}"
-        out_svg = f"{self.out_dir_svg}/{out}.{FileExportType.SVG}"
-        figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
-        figure.savefig(out_svg, bbox_inches="tight")
+
+
+class DedupGnuTime:
+    out_dir_jpg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.JPG}/dedup"
+    out_dir_svg = f"{GRAPHS_OUTPUT_DIR}/{FileExportType.SVG}/dedup"
+
+    def __init__(
+        self,
+        fs_type: FilesystemType,
+        tool_name: str,
+        display_tool_name: str,
+        out_dir: str,
+    ):
+        self.tool_name = tool_name
+        create_dir(self.out_dir_jpg)
+        create_dir(self.out_dir_svg)
+
+        self.display_tool_name = display_tool_name
+        self.out_dir = f"fs/{fs_type}/out/{out_dir}"
+
+        self.__plot_memory_usage()
+        self.__plot_time_elapsed()
+        self.__plot_csum_validate()
 
     def __plot_memory_usage(self):
-        ax = self.combined[
-            [ResourceUtilization.ResourceUtilizationFields.MAX_MEMORY]
-        ].plot(
-            kind="bar",
+        self.__plot_memory_usage_comparison()
+        self.__plot_memory_usage_detailed()
+
+    def __plot_memory_usage_comparison(self):
+        pass
+
+    def __plot_memory_usage_detailed(self):
+        df = GnuTimeFile(path=f"{self.out_dir}/time-whole.csv").df
+        ax = df[[GnuTimeFile.Fields.MAX_MEMORY.value]].plot(
+            kind="area",
             title=f"{self.display_tool_name} deduplication maximal memory usage",
             xlabel="File size (megabytes)",
             ylabel="Occupied memory (megabytes)",
             legend=None,
         )
 
-        self.__plot_memory_usage_max(ax)
+        self.__plot_memory_usage_max(ax, df)
 
         out = f"{self.tool_name}_occupied_memory"
         out_jpg = f"{self.out_dir_jpg}/{out}.{FileExportType.JPG}"
@@ -1319,10 +1284,8 @@ class ResourceUtilization:
         figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
         figure.savefig(out_svg, bbox_inches="tight")
 
-    def __plot_memory_usage_max(self, ax: plt.Axes):
-        max = self.combined[
-            ResourceUtilization.ResourceUtilizationFields.MAX_MEMORY
-        ].max()
+    def __plot_memory_usage_max(self, ax, df: pd.DataFrame):
+        max = df[GnuTimeFile.Fields.MAX_MEMORY.value].max()
         xmin, xmax = ax.get_xlim()
 
         ax.hlines(y=max, xmin=xmin, xmax=xmax, color="red", linewidth=1)
@@ -1339,40 +1302,114 @@ class ResourceUtilization:
             zorder=3,
         )
 
+    def __plot_time_elapsed(self):
+        df = GnuTimeFile(path=f"{self.out_dir}/time-whole.csv").df
+        ax = df[
+            [
+                GnuTimeFile.Fields.SYSTEM_TIME.value,
+                GnuTimeFile.Fields.USER_TIME.value,
+            ]
+        ].plot(
+            kind="area",
+            stacked=True,
+            title=f"{self.display_tool_name} deduplication time elapsed",
+            xlabel="File size (megabytes)",
+            ylabel="Elapsed time (seconds)",
+        )
+        legend = ax.get_legend()
+        legend.get_texts()[0].set_text("system time")
+        legend.get_texts()[1].set_text("user time")
+        figure = ax.get_figure()
+        out = f"{self.tool_name}_time_elapsed"
+        out_jpg = f"{self.out_dir_jpg}/{out}.{FileExportType.JPG}"
+        out_svg = f"{self.out_dir_svg}/{out}.{FileExportType.SVG}"
+        figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
+        figure.savefig(out_svg, bbox_inches="tight")
+
+    def __plot_csum_validate(self):
+        pass
+        # df = pd.read_csv(f"{self.out_dir}/time-csum-validate.csv")
+        # df[GnuTimeFile.Fields.FILE_SIZE.value] = df[
+        #     GnuTimeFile.Fields.FILE_SIZE.value
+        # ].str.removesuffix("M")
+        # df[GnuTimeFile.Fields.FILE_SIZE.value] = df[
+        #     GnuTimeFile.Fields.FILE_SIZE.value
+        # ].astype("int")
+        # df = df.set_index(GnuTimeFile.Fields.FILE_SIZE.value)
+        # print(df)
+        # df_before = df[df[GnuTimeFile.Fields.WHEN.value] == WhenType.BEFORE.value]
+        # df_before = df_before.groupby([GnuTimeFile.Fields.FILE_SIZE.value]).agg(
+        #     {f"{GnuTimeFile.Fields.REAL_TIME.value}": ["mean"]}
+        # )
+        # df_before["Before"] = df_before.iloc[:, [0]]
+        # df_before = df_before.drop(columns=[GnuTimeFile.Fields.REAL_TIME.value])
+
+        # df_after = df[df[GnuTimeFile.Fields.WHEN.value] == WhenType.AFTER.value]
+        # df_after = df_after.groupby([GnuTimeFile.Fields.FILE_SIZE.value]).agg(
+        #     {f"{GnuTimeFile.Fields.REAL_TIME.value}": ["mean"]}
+        # )
+        # df_after["After"] = df_after.iloc[:, [0]]
+        # df_after = df_after.drop(columns=[GnuTimeFile.Fields.REAL_TIME.value])
+
+        # merged = pd.merge(
+        #     df_before, df_after, how="left", on=GnuTimeFile.Fields.FILE_SIZE.value
+        # )
+        # merged = merged.sort_values(GnuTimeFile.Fields.FILE_SIZE.value)
+        # print(merged)
+        # ax = merged.plot()
+        # figure = ax.get_figure()
+        # figure.savefig("tmp.jpg", dpi=300)
+
+        # print(df_before)
+        # print(df_after)
+        # ax = df[[
+        #     GnuTimeFile.Fields.REAL_TIME.value
+        # ]]
+
 
 class DedupBenchmark:
     def __init__(self):
         self.__df()
-        self.__resources()
+        self.__gnu_time()
 
     def __df(self):
         DedupDf(
             fs_type=FilesystemType.NILFS_DEDUP,
             tool_name="dedup",
             display_tool_name="Nilfs dedup",
+            out_dir="dedup/dedup",
         )
         DedupDf(
-            fs_type=FilesystemType.BTRFS, tool_name="dduper", display_tool_name="dduper"
+            fs_type=FilesystemType.BTRFS,
+            tool_name="dduper",
+            display_tool_name="dduper",
+            out_dir="dedup/dduper",
         )
         DedupDf(
             fs_type=FilesystemType.BTRFS,
             tool_name="duperemove",
             display_tool_name="duperemove",
+            out_dir="dedup/duperemove",
         )
 
-    def __resources(self):
-        ResourceUtilization(
+    def __gnu_time(self):
+        DedupGnuTime(
             fs_type=FilesystemType.NILFS_DEDUP,
-            tool_name="nilfs-dedup",
+            tool_name="dedup",
             display_tool_name="Nilfs dedup",
+            out_dir="dedup/dedup",
         )
-        ResourceUtilization(
-            fs_type=FilesystemType.BTRFS, tool_name="dduper", display_tool_name="dduper"
+        DedupGnuTime(
+            fs_type=FilesystemType.BTRFS,
+            tool_name="dduper",
+            display_tool_name="dduper",
+            out_dir="dedup/dduper",
         )
-        ResourceUtilization(
+        DedupGnuTime(
             fs_type=FilesystemType.BTRFS,
             tool_name="duperemove",
             display_tool_name="duperemove",
+            out_dir="dedup/duperemove",
         )
 
 
