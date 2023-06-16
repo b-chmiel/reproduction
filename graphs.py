@@ -1105,8 +1105,10 @@ class DedupDf:
         )
         df["value"] = y_func(df[WhenType.BEFORE], df[WhenType.AFTER])
         ax = df[["value"]].plot(
-            kind="area", title=title, xlabel=xlabel, ylabel=ylabel, legend=None
+            kind="bar", title=title, xlabel=xlabel, ylabel=ylabel, legend=None
         )
+        ax.locator_params(nbins=10)
+        ax.tick_params(axis="x", rotation=0)
         figure = ax.get_figure()
         out_jpg = f"{self.out_dir_jpg}/{filename}.{FileExportType.JPG}"
         out_svg = f"{self.out_dir_svg}/{filename}.{FileExportType.SVG}"
@@ -1268,12 +1270,14 @@ class DedupGnuTime:
     def __plot_memory_usage_detailed(self):
         df = GnuTimeFile(path=f"{self.out_dir}/time-whole.csv").df
         ax = df[[GnuTimeFile.Fields.MAX_MEMORY.value]].plot(
-            kind="area",
+            kind="bar",
             title=f"{self.display_tool_name} deduplication maximal memory usage",
             xlabel="File size (megabytes)",
             ylabel="Occupied memory (megabytes)",
             legend=None,
         )
+        ax.locator_params(nbins=10)
+        ax.tick_params(axis="x", rotation=0)
 
         self.__plot_memory_usage_max(ax, df)
 
@@ -1310,12 +1314,14 @@ class DedupGnuTime:
                 GnuTimeFile.Fields.USER_TIME.value,
             ]
         ].plot(
-            kind="area",
+            kind="bar",
             stacked=True,
             title=f"{self.display_tool_name} deduplication time elapsed",
             xlabel="File size (megabytes)",
             ylabel="Elapsed time (seconds)",
         )
+        ax.locator_params(nbins=10)
+        ax.tick_params(axis="x", rotation=0)
         legend = ax.get_legend()
         legend.get_texts()[0].set_text("system time")
         legend.get_texts()[1].set_text("user time")
