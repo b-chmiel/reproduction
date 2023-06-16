@@ -33,8 +33,6 @@ class ToolName(Enum):
     BONNIE = "bonnie"
     FIO = "fio"
     DEDUP = "dedup"
-    APPEND = "append"
-    DELETE = "delete"
 
 
 class FileExportType(Enum):
@@ -657,8 +655,6 @@ class FioBenchmark:
     tests = [
         "random_read_test",
         "random_write_test",
-        "append_read_test",
-        "append_write_test",
         "sequential_read_test",
         "sequential_write_test",
     ]
@@ -832,50 +828,6 @@ class FioBenchmark:
     def __df(self):
         logger.info("Generating df graphs for fio tests")
         out_dir = "out/fio"
-
-        input_file_before = out_dir + "/df_before_fio_append_read_test.txt"
-        input_file_after = out_dir + "/df_after_fio_append_read_test.txt"
-        output_image_name = "fio_append_read_metadata_size"
-        title = "Space occupied after append read test"
-        SpaceUsageDf(
-            input_file_before,
-            input_file_after,
-            output_image_name,
-            title,
-            self.tool_name,
-            [FilesystemType.NILFS_DEDUP],
-        )
-
-        output_image_name = "fio_append_read_metadata_size_all"
-        SpaceUsageDf(
-            input_file_before,
-            input_file_after,
-            output_image_name,
-            title,
-            self.tool_name,
-        )
-
-        input_file_before = out_dir + "/df_before_fio_append_write_test.txt"
-        input_file_after = out_dir + "/df_after_fio_append_write_test.txt"
-        output_image_name = "fio_append_write_metadata_size"
-        title = "Space occupied after fio append write test"
-        SpaceUsageDf(
-            input_file_before,
-            input_file_after,
-            output_image_name,
-            title,
-            self.tool_name,
-            [FilesystemType.NILFS_DEDUP],
-        )
-
-        output_image_name = "fio_append_write_metadata_size_all"
-        SpaceUsageDf(
-            input_file_before,
-            input_file_after,
-            output_image_name,
-            title,
-            self.tool_name,
-        )
 
         input_file_before = out_dir + "/df_before_fio_random_read_test.txt"
         input_file_after = out_dir + "/df_after_fio_random_read_test.txt"
@@ -1419,62 +1371,6 @@ class DedupBenchmark:
         )
 
 
-class DeleteBenchmark:
-    def __init__(self):
-        logger.info("Generating df graphs for delete test")
-        input_file_before = "out/delete/df_before_delete_test.txt"
-        input_file_after = "out/delete/df_after_delete_test.txt"
-        output_image_name = "delete_metadata_size"
-        title = "Space occupied after deletion test"
-
-        SpaceUsageDf(
-            input_file_before,
-            input_file_after,
-            output_image_name,
-            title,
-            ToolName.DELETE,
-            [FilesystemType.NILFS_DEDUP],
-        )
-
-        output_image_name = "delete_metadata_size_all"
-
-        SpaceUsageDf(
-            input_file_before,
-            input_file_after,
-            output_image_name,
-            title,
-            ToolName.DELETE,
-        )
-
-
-class AppendBenchmark:
-    def __init__(self):
-        logger.info("Generating df graphs for append test")
-        input_file_before = "out/append/df_before_append_test.txt"
-        input_file_after = "out/append/df_after_append_test.txt"
-        output_image_name = "append_metadata_size"
-        title = "Space occupied after append test"
-
-        SpaceUsageDf(
-            input_file_before,
-            input_file_after,
-            output_image_name,
-            title,
-            ToolName.APPEND,
-            [FilesystemType.NILFS_DEDUP],
-        )
-
-        output_image_name = "append_metadata_size_all"
-
-        SpaceUsageDf(
-            input_file_before,
-            input_file_after,
-            output_image_name,
-            title,
-            ToolName.APPEND,
-        )
-
-
 def create_dir(dir_name: str):
     logger.debug(f"Creating directory {dir_name}")
     Path(dir_name).mkdir(parents=True, exist_ok=True)
@@ -1501,8 +1397,6 @@ def main():
     create_output_dirs()
 
     BonnieBenchmark()
-    DeleteBenchmark()
-    AppendBenchmark()
     FioBenchmark()
     DedupBenchmark()
 
