@@ -1002,55 +1002,88 @@ class DedupDf:
         create_dir(self.out_dir_jpg)
         create_dir(self.out_dir_svg)
 
-        self.__generate_graphs_dedup_ratio()
-        self.__generate_graphs_data_reduction()
-        self.__generate_graphs_expected_reclaim()
+        self.__plot_dedup_ratio()
+        self.__plot_data_reduction()
+        self.__plot_reclaim()
+        self.__plot_expected_reclaim()
 
-    def __generate_graphs_dedup_ratio(self):
+    def __plot_dedup_ratio(self):
         title = f"{self.display_tool_name} space reduction ratio"
         filename = f"{self.tool_name}_dedup_ratio"
         xlabel = "File size"
         ylabel = "Space reduction ratio"
-        self.__generate_graphs(
-            title,
-            filename,
-            xlabel,
-            ylabel,
-            self.__calculate_deduplication_ratio,
-            PlotUnit.PERCENT,
+        self.__plot(
+            title, filename, xlabel, ylabel, self.__calculate_deduplication_ratio
         )
 
-    def __generate_graphs_data_reduction(self):
+    def __plot_data_reduction(self):
         title = f"{self.display_tool_name} space reduction"
         filename = f"{self.tool_name}_data_reduction"
         xlabel = "File size"
         ylabel = "Space reduction"
-        self.__generate_graphs(
-            title,
-            filename,
-            xlabel,
-            ylabel,
-            self.__calculate_data_reduction,
-            PlotUnit.PERCENT,
-        )
+        self.__plot(title, filename, xlabel, ylabel, self.__calculate_data_reduction)
 
-    def __generate_graphs_expected_reclaim(self):
+    def __plot_reclaim(self):
+        logger.debug("Generating DedupDdf reclaim graph")
         title = f"{self.display_tool_name} storage reclaim"
         filename = f"{self.tool_name}_storage_reclaim"
         xlabel = "File size (megabytes)"
         ylabel = "Storage reclaimed (megabytes)"
-        self.__generate_graphs(
-            title,
-            filename,
-            xlabel,
-            ylabel,
-            self.__calculate_storage_reclaim,
-            PlotUnit.SCALAR,
+        self.__plot(title, filename, xlabel, ylabel, self.__calculate_storage_reclaim)
+
+    def __plot_expected_reclaim(self):
+        logger.debug("Generating DedupDdf expected reclaim graph")
+        title = f"{self.display_tool_name} expected storage reclaim"
+        filename = f"{self.tool_name}_expected_storage_reclaim"
+        xlabel = "File size (megabytes)"
+        ylabel = "Storage reclaimed (megabytes)"
+
+        df = self.files_df.sort_values(DfResult.Schema.FILE_SIZE_MEGABYTES)
+        df = df.pivot(
+            index=DfResult.Schema.FILE_SIZE_MEGABYTES,
+            columns=DfResult.Schema.TYPE,
+            values=DfResult.Schema.SIZE,
+        )
+        df["actual"] = self.__calculate_storage_reclaim(
+            df[WhenType.BEFORE], df[WhenType.AFTER]
+        )
+        df["expected"] = df.index
+
+        ax = df[["actual", "expected"]].plot(
+            kind="bar", title=title, xlabel=xlabel, ylabel=ylabel
+        )
+        lines, labels = ax.get_legend_handles_labels()
+        ax.legend(lines, labels)
+        ax.locator_params(nbins=10)
+        ax.tick_params(axis="x", rotation=0)
+
+        out_jpg = f"{self.out_dir_jpg}/{filename}.{FileExportType.JPG}"
+        out_svg = f"{self.out_dir_svg}/{filename}.{FileExportType.SVG}"
+        logger.info(f"Exporting DedupDf graphs: {out_jpg}, {out_svg}")
+
+        figure = ax.get_figure()
+        figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
+        figure.savefig(out_svg, bbox_inches="tight")
+
+    def __plot_expected_reclaim_expected_line(self, ax, df: pd.DataFrame):
+        max = df[GnuTimeFile.Fields.MAX_MEMORY.value].max()
+        xmin, xmax = ax.get_xlim()
+
+        ax.hlines(y=max, xmin=xmin, xmax=xmax, color="red", linewidth=1)
+        _, ymax = ax.get_ylim()
+        label_position = max / ymax + 0.02
+        ax.text(
+            0.88,
+            label_position,
+            f"Maximum = {max:.1f}M",
+            ha="right",
+            va="center",
+            transform=ax.transAxes,
+            size=8,
+            zorder=3,
         )
 
-    def __generate_graphs(
-        self, title, filename, xlabel, ylabel, y_func, plot_unit: PlotUnit
-    ):
+    def __plot(self, title, filename, xlabel, ylabel, y_func):
         logger.debug("Processing files for dedup tests")
         df = self.files_df.sort_values(DfResult.Schema.FILE_SIZE_MEGABYTES)
         df = df.pivot(
@@ -1357,6 +1390,7 @@ class DedupBenchmark:
             display_tool_name="duperemove",
             out_dir="dedup/duperemove",
         )
+        # self.__df_space_reduction_all()
 
     def __gnu_time(self):
         DedupGnuTime(
