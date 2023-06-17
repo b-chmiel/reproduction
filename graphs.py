@@ -1407,7 +1407,7 @@ class DedupBenchmark:
             len_max = max(len_max, tool_df.shape[0])
             df = pd.concat([df, tool_df])
 
-        df = df[df.index >= 16]
+        df = df[df.index >= 208]
         df = df.reset_index()
 
         df_result = (
