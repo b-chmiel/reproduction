@@ -1064,6 +1064,7 @@ class DedupDf:
         ylabel = "Storage reclaimed (megabytes)"
 
         df = self.files_df.sort_values(DfResult.Schema.FILE_SIZE_MEGABYTES)
+        df = df.loc[df[DfResult.Schema.FILE_SIZE_MEGABYTES] >= 16]
         df = df.pivot(
             index=DfResult.Schema.FILE_SIZE_MEGABYTES,
             columns=DfResult.Schema.TYPE,
@@ -1093,6 +1094,7 @@ class DedupDf:
     def __plot(self, title, filename, xlabel, ylabel, y_func):
         logger.debug("Processing files for dedup tests")
         df = self.files_df.sort_values(DfResult.Schema.FILE_SIZE_MEGABYTES)
+        df = df.loc[df[DfResult.Schema.FILE_SIZE_MEGABYTES] >= 16]
         df = df.pivot(
             index=DfResult.Schema.FILE_SIZE_MEGABYTES,
             columns=DfResult.Schema.TYPE,
@@ -1257,6 +1259,7 @@ class DedupGnuTime:
 
     def __plot_memory_usage(self):
         df = GnuTimeFile(path=f"{self.out_dir}/time-whole.csv").df
+        df = df[df.index >= 16]
         ax = df[[GnuTimeFile.Fields.MAX_MEMORY.value]].plot(
             kind="bar",
             title=f"{self.display_tool_name} deduplication maximal memory usage",
@@ -1299,6 +1302,7 @@ class DedupGnuTime:
 
     def __plot_time_elapsed(self):
         df = GnuTimeFile(path=f"{self.out_dir}/time-whole.csv").df
+        df = df[df.index >= 16]
         ax = df[
             [
                 GnuTimeFile.Fields.SYSTEM_TIME.value,
@@ -1374,22 +1378,23 @@ class DedupBenchmark:
 
     def __plot_csum_validate_if_pass(self):
         df = pd.DataFrame()
-        len_max = 0
         for tool in DEDUPLICATION_TOOLS:
             tool_df = GnuTimeFile(f"{tool.path()}/time-csum-validate.csv").df
             tool_df["Tool"] = tool.name
-            len_max = max(len_max, tool_df.shape[0])
             df = pd.concat([df, tool_df])
+
+        df = df[df.index >= 16]
         by_tool_df = df.groupby(["Tool"], as_index=False).size()
         by_tool_df = by_tool_df.set_index("Tool")
-        by_tool_df["Total tests"] = len_max
+        by_tool_df["Total tests"] = by_tool_df["size"].max()
         by_tool_df["Tests passed"] = by_tool_df["size"]
         by_tool_df = by_tool_df.drop(
             ["size"],
             axis=1,
         )
         by_tool_df["Checksum validation"] = by_tool_df.apply(
-            lambda row: "OK" if row["Tests passed"] == len_max else "NOK", axis=1
+            lambda row: "OK" if row["Tests passed"] == row["Total tests"] else "NOK",
+            axis=1,
         )
         TexTable(by_tool_df, "checksum_validation_comparison", ToolName.DEDUP).export()
 
@@ -1402,8 +1407,9 @@ class DedupBenchmark:
             len_max = max(len_max, tool_df.shape[0])
             df = pd.concat([df, tool_df])
 
+        df = df[df.index >= 16]
         df = df.reset_index()
-        df = df.loc[df["file-size"] >= 16]
+
         df_result = (
             df.groupby(["Tool", "file-name"])
             .apply(
