@@ -28,7 +28,7 @@ deduplicate() {
 }
 
 dedup_test() {
-	DIR=$OUTPUT_DIRECTORY/dedup
+	DIR=$OUTPUT_DIRECTORY/dedup/dedup
 	GEN_SIZE=$1
 
 	echo "################################################################################"
@@ -63,7 +63,7 @@ dedup_test() {
 }
 
 dedup_test_not_same() {
-	DIR=$OUTPUT_DIRECTORY/dedup-not-same
+	DIR=$OUTPUT_DIRECTORY/dedup/dedup-not-same
 	GEN_SIZE=$1
 
 	echo "################################################################################"
