@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
+import math
 import subprocess
 from multiprocessing import Pool
 from itertools import repeat
@@ -45,6 +47,28 @@ class FileExportType(Enum):
     JPG = "jpg"
     TEX = "tex"
 
+
+class DedupToolName(StrEnum):
+    DEDUP = "dedup"
+    DUPEREMOVE = "duperemove"
+    DDUPER = "dduper"
+
+
+@dataclass
+class DedupTool:
+    name: DedupToolName
+    fs_type: FilesystemType
+    output_dir: str
+
+    def path(self):
+        return f"fs/{self.fs_type}/out/{self.output_dir}"
+
+
+DEDUPLICATION_TOOLS = [
+    DedupTool(DedupToolName.DEDUP, FilesystemType.NILFS_DEDUP, "dedup/dedup"),
+    DedupTool(DedupToolName.DUPEREMOVE, FilesystemType.BTRFS, "dedup/duperemove"),
+    DedupTool(DedupToolName.DDUPER, FilesystemType.BTRFS, "dedup/dduper"),
+]
 
 FS_MOUNT_POINTS = {
     FilesystemType.BTRFS: "/dev/loop0",
@@ -1066,24 +1090,6 @@ class DedupDf:
         figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
         figure.savefig(out_svg, bbox_inches="tight")
 
-    def __plot_expected_reclaim_expected_line(self, ax, df: pd.DataFrame):
-        max = df[GnuTimeFile.Fields.MAX_MEMORY.value].max()
-        xmin, xmax = ax.get_xlim()
-
-        ax.hlines(y=max, xmin=xmin, xmax=xmax, color="red", linewidth=1)
-        _, ymax = ax.get_ylim()
-        label_position = max / ymax + 0.02
-        ax.text(
-            0.88,
-            label_position,
-            f"Maximum = {max:.1f}M",
-            ha="right",
-            va="center",
-            transform=ax.transAxes,
-            size=8,
-            zorder=3,
-        )
-
     def __plot(self, title, filename, xlabel, ylabel, y_func):
         logger.debug("Processing files for dedup tests")
         df = self.files_df.sort_values(DfResult.Schema.FILE_SIZE_MEGABYTES)
@@ -1248,16 +1254,8 @@ class DedupGnuTime:
 
         self.__plot_memory_usage()
         self.__plot_time_elapsed()
-        self.__plot_csum_validate()
 
     def __plot_memory_usage(self):
-        self.__plot_memory_usage_comparison()
-        self.__plot_memory_usage_detailed()
-
-    def __plot_memory_usage_comparison(self):
-        pass
-
-    def __plot_memory_usage_detailed(self):
         df = GnuTimeFile(path=f"{self.out_dir}/time-whole.csv").df
         ax = df[[GnuTimeFile.Fields.MAX_MEMORY.value]].plot(
             kind="bar",
@@ -1326,51 +1324,13 @@ class DedupGnuTime:
         figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
         figure.savefig(out_svg, bbox_inches="tight")
 
-    def __plot_csum_validate(self):
-        pass
-        # df = pd.read_csv(f"{self.out_dir}/time-csum-validate.csv")
-        # df[GnuTimeFile.Fields.FILE_SIZE.value] = df[
-        #     GnuTimeFile.Fields.FILE_SIZE.value
-        # ].str.removesuffix("M")
-        # df[GnuTimeFile.Fields.FILE_SIZE.value] = df[
-        #     GnuTimeFile.Fields.FILE_SIZE.value
-        # ].astype("int")
-        # df = df.set_index(GnuTimeFile.Fields.FILE_SIZE.value)
-        # print(df)
-        # df_before = df[df[GnuTimeFile.Fields.WHEN.value] == WhenType.BEFORE.value]
-        # df_before = df_before.groupby([GnuTimeFile.Fields.FILE_SIZE.value]).agg(
-        #     {f"{GnuTimeFile.Fields.REAL_TIME.value}": ["mean"]}
-        # )
-        # df_before["Before"] = df_before.iloc[:, [0]]
-        # df_before = df_before.drop(columns=[GnuTimeFile.Fields.REAL_TIME.value])
-
-        # df_after = df[df[GnuTimeFile.Fields.WHEN.value] == WhenType.AFTER.value]
-        # df_after = df_after.groupby([GnuTimeFile.Fields.FILE_SIZE.value]).agg(
-        #     {f"{GnuTimeFile.Fields.REAL_TIME.value}": ["mean"]}
-        # )
-        # df_after["After"] = df_after.iloc[:, [0]]
-        # df_after = df_after.drop(columns=[GnuTimeFile.Fields.REAL_TIME.value])
-
-        # merged = pd.merge(
-        #     df_before, df_after, how="left", on=GnuTimeFile.Fields.FILE_SIZE.value
-        # )
-        # merged = merged.sort_values(GnuTimeFile.Fields.FILE_SIZE.value)
-        # print(merged)
-        # ax = merged.plot()
-        # figure = ax.get_figure()
-        # figure.savefig("tmp.jpg", dpi=300)
-
-        # print(df_before)
-        # print(df_after)
-        # ax = df[[
-        #     GnuTimeFile.Fields.REAL_TIME.value
-        # ]]
-
 
 class DedupBenchmark:
     def __init__(self):
         self.__df()
         self.__gnu_time()
+        self.__plot_csum_validate_if_pass()
+        self.__plot_csum_validate_performance()
 
     def __df(self):
         DedupDf(
@@ -1411,6 +1371,69 @@ class DedupBenchmark:
             display_tool_name="duperemove",
             out_dir="dedup/duperemove",
         )
+
+    def __plot_csum_validate_if_pass(self):
+        df = pd.DataFrame()
+        len_max = 0
+        for tool in DEDUPLICATION_TOOLS:
+            tool_df = GnuTimeFile(f"{tool.path()}/time-csum-validate.csv").df
+            tool_df["Tool"] = tool.name
+            len_max = max(len_max, tool_df.shape[0])
+            df = pd.concat([df, tool_df])
+        by_tool_df = df.groupby(["Tool"], as_index=False).size()
+        by_tool_df = by_tool_df.set_index("Tool")
+        by_tool_df["Total tests"] = len_max
+        by_tool_df["Tests passed"] = by_tool_df["size"]
+        by_tool_df = by_tool_df.drop(
+            ["size"],
+            axis=1,
+        )
+        by_tool_df["Checksum validation"] = by_tool_df.apply(
+            lambda row: "OK" if row["Tests passed"] == len_max else "NOK", axis=1
+        )
+        TexTable(by_tool_df, "checksum_validation_comparison", ToolName.DEDUP).export()
+
+    def __plot_csum_validate_performance(self):
+        df = pd.DataFrame()
+        len_max = 0
+        for tool in DEDUPLICATION_TOOLS:
+            tool_df = GnuTimeFile(f"{tool.path()}/time-csum-validate.csv").df
+            tool_df["Tool"] = tool.name
+            len_max = max(len_max, tool_df.shape[0])
+            df = pd.concat([df, tool_df])
+
+        df = df.reset_index()
+        df = df.loc[df["file-size"] >= 16]
+        df_result = (
+            df.groupby(["Tool", "file-name"])
+            .apply(
+                lambda x: x.pivot(index="file-size", columns="when", values="real-time")
+            )
+            .fillna(0)
+            .assign(
+                Ratio=lambda x: (x["after"] - x["before"])
+                / ((x["before"] + x["after"]) / 2)
+            )
+            .groupby(level=[0, 1])
+            .agg({"Ratio": ["mean", "min", "max", "std"]})
+            .rename(
+                columns={
+                    "Ratio": "Read performance loss after deduplication",
+                }
+            )
+            .reset_index()
+        )
+        df_result["File type"] = df_result["file-name"].apply(
+            lambda x: "source" if x == "f1" else "destination"
+        )
+        TexTable(
+            df_result[
+                ["Tool", "File type", "Read performance loss after deduplication"]
+            ],
+            "checksum_validation_performance",
+            ToolName.DEDUP,
+            with_index=False,
+        ).export()
 
 
 def create_dir(dir_name: str):
