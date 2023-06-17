@@ -16,6 +16,7 @@ import logging
 import pandas as pd
 import configparser
 import argparse
+import numpy_financial as npf
 
 
 class FilesystemType(Enum):
@@ -1358,6 +1359,7 @@ class DedupBenchmark:
         self.__plot_csum_validate_if_pass()
         self.__plot_csum_validate_performance()
         self.__plot_space_reduction_comparison()
+        self.__plot_memory_usage_comparison()
 
     def __df(self):
         DedupDf(
@@ -1501,6 +1503,34 @@ class DedupBenchmark:
         TexTable(
             df,
             "space_reduction_comparison",
+            ToolName.DEDUP,
+            with_index=False,
+        ).export()
+
+    def __plot_memory_usage_comparison(self):
+        df = pd.DataFrame()
+        for tool in DEDUPLICATION_TOOLS:
+            tool_df = GnuTimeFile(f"{tool.path()}/time-whole.csv").df
+            tool_df["Tool"] = tool.name
+            df = pd.concat([df, tool_df])
+
+        df = df[df.index >= 16]
+        df = df.reset_index()
+        df: pd.DataFrame = df.drop(columns="file-name")
+
+        df = (
+            df.groupby(["Tool"])
+            .agg({"max-memory": ["mean", "min", "max", "std"]})
+            .rename(
+                columns={
+                    "max-memory": "Memory usage",
+                }
+            )
+            .reset_index()
+        )
+        TexTable(
+            df,
+            "memory_usage_comparison",
             ToolName.DEDUP,
             with_index=False,
         ).export()
