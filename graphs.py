@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
 import subprocess
-from multiprocessing import Pool
+from multiprocessing import Pool, Process
 from itertools import repeat
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
@@ -177,7 +177,7 @@ class TexTable:
     def export(self):
         filename = f"{self.output_dir}/{self.name}.{FileExportType.TEX}"
         logger.info(f"Exporting latex table to {filename}")
-        self.df.to_latex(filename, index=self.with_index)
+        self.df.to_latex(filename, index=self.with_index, float_format="%.2f")
 
 
 class SpaceUsageDf:
@@ -1354,12 +1354,23 @@ class DedupGnuTime:
 
 class DedupBenchmark:
     def __init__(self):
-        self.__df()
-        self.__gnu_time()
-        self.__plot_csum_validate_if_pass()
-        self.__plot_csum_validate_performance()
-        self.__plot_space_reduction_comparison()
-        self.__plot_memory_usage_comparison()
+        func = [
+            self.__df,
+            self.__gnu_time,
+            self.__plot_csum_validate_if_pass,
+            self.__plot_csum_validate_performance,
+            self.__plot_space_reduction_comparison,
+            self.__plot_memory_usage_comparison,
+            self.__plot_time_elapsed_comparison,
+        ]
+        processes = []
+        for f in func:
+            p = Process(target=f)
+            p.start()
+            processes.append(p)
+
+        for p in processes:
+            p.join()
 
     def __df(self):
         DedupDf(
@@ -1523,7 +1534,7 @@ class DedupBenchmark:
             .agg({"max-memory": ["mean", "min", "max", "std"]})
             .rename(
                 columns={
-                    "max-memory": "Memory usage",
+                    "max-memory": "Memory usage (megabytes)",
                 }
             )
             .reset_index()
@@ -1531,6 +1542,43 @@ class DedupBenchmark:
         TexTable(
             df,
             "memory_usage_comparison",
+            ToolName.DEDUP,
+            with_index=False,
+        ).export()
+
+    def __plot_time_elapsed_comparison(self):
+        df = pd.DataFrame()
+        for tool in DEDUPLICATION_TOOLS:
+            tool_df = GnuTimeFile(f"{tool.path()}/time-whole.csv").df
+            tool_df["Tool"] = tool.name
+            df = pd.concat([df, tool_df])
+
+        df = df[df.index >= 16]
+        df = df.reset_index()
+        df: pd.DataFrame = df.drop(columns="file-name")
+        df["ratio"] = df["user-time"] / df["system-time"]
+
+        df = (
+            df.groupby(["Tool"])
+            .agg(
+                {
+                    "system-time": ["mean", "min", "max", "std"],
+                    "user-time": ["mean", "min", "max", "std"],
+                    "ratio": ["mean", "min", "max", "std"],
+                }
+            )
+            .rename(
+                columns={
+                    "system-time": "System time (seconds)",
+                    "user-time": "User time (seconds)",
+                    "ratio": "User to system time ratio",
+                }
+            )
+            .reset_index()
+        )
+        TexTable(
+            df,
+            "time_elapsed_comparison",
             ToolName.DEDUP,
             with_index=False,
         ).export()
