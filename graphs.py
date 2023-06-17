@@ -13,6 +13,7 @@ from numbers import Number
 import logging
 import pandas as pd
 import configparser
+import argparse
 
 
 class FilesystemType(Enum):
@@ -1390,7 +1391,6 @@ class DedupBenchmark:
             display_tool_name="duperemove",
             out_dir="dedup/duperemove",
         )
-        # self.__df_space_reduction_all()
 
     def __gnu_time(self):
         DedupGnuTime(
@@ -1433,14 +1433,47 @@ def create_output_dirs():
     create_dir(BONNIE_OUTPUT_DIR)
 
 
+class ArgBenchmark(StrEnum):
+    BONNIE = "bonnie"
+    FIO = "fio"
+    DEDUP = "dedup"
+    ALL = "all"
+
+
+def parse_args() -> ArgBenchmark:
+    parser = argparse.ArgumentParser(prog="graphs")
+    parser.add_argument(
+        "-b",
+        "--benchmark",
+        choices=[
+            ArgBenchmark.BONNIE,
+            ArgBenchmark.FIO,
+            ArgBenchmark.DEDUP,
+            ArgBenchmark.ALL,
+        ],
+        default=ArgBenchmark.ALL,
+        required=False,
+    )
+    args = parser.parse_args()
+    return args.benchmark
+
+
 def main():
     logger.info("START")
 
     create_output_dirs()
 
-    BonnieBenchmark()
-    FioBenchmark()
-    DedupBenchmark()
+    match parse_args():
+        case ArgBenchmark.BONNIE:
+            BonnieBenchmark()
+        case ArgBenchmark.FIO:
+            FioBenchmark()
+        case ArgBenchmark.DEDUP:
+            DedupBenchmark()
+        case ArgBenchmark.ALL:
+            BonnieBenchmark()
+            FioBenchmark()
+            DedupBenchmark()
 
     logger.info("END")
 
