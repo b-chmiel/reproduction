@@ -2,11 +2,11 @@
 
 from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
-import math
 import subprocess
 from multiprocessing import Pool
 from itertools import repeat
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import numpy as np
 from pathlib import Path
 import shutil
@@ -1028,7 +1028,7 @@ class DedupDf:
         create_dir(self.out_dir_svg)
 
         self.__plot_dedup_ratio()
-        self.__plot_data_reduction()
+        self.__plot_space_reduction()
         self.__plot_reclaim()
         self.__plot_expected_reclaim()
 
@@ -1041,12 +1041,34 @@ class DedupDf:
             title, filename, xlabel, ylabel, self.__calculate_deduplication_ratio
         )
 
-    def __plot_data_reduction(self):
+    def __plot_space_reduction(self):
         title = f"{self.display_tool_name} space reduction"
-        filename = f"{self.tool_name}_data_reduction"
-        xlabel = "File size"
+        filename = f"{self.tool_name}_space_reduction"
+        xlabel = "File size (megabytes)"
         ylabel = "Space reduction"
-        self.__plot(title, filename, xlabel, ylabel, self.__calculate_data_reduction)
+        logger.debug("Processing files for dedup tests")
+        df = self.files_df.sort_values(DfResult.Schema.FILE_SIZE_MEGABYTES)
+        df = df.loc[df[DfResult.Schema.FILE_SIZE_MEGABYTES] >= 16]
+        df = df.pivot(
+            index=DfResult.Schema.FILE_SIZE_MEGABYTES,
+            columns=DfResult.Schema.TYPE,
+            values=DfResult.Schema.SIZE,
+        )
+        df["value"] = self.__calculate_space_reduction(
+            df[WhenType.BEFORE], df[WhenType.AFTER]
+        )
+        ax = df[["value"]].plot(
+            kind="bar", title=title, xlabel=xlabel, ylabel=ylabel, legend=None
+        )
+        ax.yaxis.set_major_formatter(mtick.PercentFormatter())
+        ax.locator_params(nbins=10)
+        ax.tick_params(axis="x", rotation=0)
+        figure = ax.get_figure()
+        out_jpg = f"{self.out_dir_jpg}/{filename}.{FileExportType.JPG}"
+        out_svg = f"{self.out_dir_svg}/{filename}.{FileExportType.SVG}"
+        logger.info(f"Exporting DedupDf graphs: {out_jpg}, {out_svg}")
+        figure.savefig(out_jpg, dpi=300, bbox_inches="tight")
+        figure.savefig(out_svg, bbox_inches="tight")
 
     def __plot_reclaim(self):
         logger.debug("Generating DedupDdf reclaim graph")
@@ -1118,8 +1140,8 @@ class DedupDf:
         return before / after
 
     @staticmethod
-    def __calculate_data_reduction(before, after):
-        return 1 - after / before
+    def __calculate_space_reduction(before, after):
+        return (1 - after / before) * 100  # %
 
     @staticmethod
     def __calculate_storage_reclaim(before, after):
@@ -1335,6 +1357,7 @@ class DedupBenchmark:
         self.__gnu_time()
         self.__plot_csum_validate_if_pass()
         self.__plot_csum_validate_performance()
+        self.__plot_space_reduction_comparison()
 
     def __df(self):
         DedupDf(
@@ -1400,11 +1423,9 @@ class DedupBenchmark:
 
     def __plot_csum_validate_performance(self):
         df = pd.DataFrame()
-        len_max = 0
         for tool in DEDUPLICATION_TOOLS:
             tool_df = GnuTimeFile(f"{tool.path()}/time-csum-validate.csv").df
             tool_df["Tool"] = tool.name
-            len_max = max(len_max, tool_df.shape[0])
             df = pd.concat([df, tool_df])
 
         df = df[df.index >= 208]
@@ -1437,6 +1458,49 @@ class DedupBenchmark:
                 ["Tool", "File type", "Read performance loss after deduplication"]
             ],
             "checksum_validation_performance",
+            ToolName.DEDUP,
+            with_index=False,
+        ).export()
+
+    def __plot_space_reduction_comparison(self):
+        df = pd.DataFrame()
+        for tool in DEDUPLICATION_TOOLS:
+            out_dir = tool.path()
+            tool_df = DfResult(out_dir, f"_deduplication_{tool.name}", tool.fs_type).df
+            df = pd.concat([df, tool_df])
+
+        df = df.sort_values(DfResult.Schema.FILE_SIZE_MEGABYTES)
+        df = df[df[DfResult.Schema.FILE_SIZE_MEGABYTES] >= 16]
+        df = df.rename(columns={DfResult.Schema.PROG_NAME: "Tool"})
+        df: pd.DataFrame = (
+            df.groupby(["Tool"])
+            .apply(
+                lambda x: x.pivot(
+                    index=DfResult.Schema.FILE_SIZE_MEGABYTES,
+                    columns=DfResult.Schema.TYPE,
+                    values=DfResult.Schema.SIZE,
+                )
+            )
+            .assign(
+                SpaceReduction=lambda x: (1 - x[WhenType.AFTER] / x[WhenType.BEFORE])
+                * 100
+            )
+            .groupby(level=[0])
+            .agg(
+                {
+                    "SpaceReduction": ["mean", "min", "max", "std"],
+                }
+            )
+            .rename(
+                columns={
+                    "SpaceReduction": "Space reduction percentage",
+                }
+            )
+            .reset_index()
+        )
+        TexTable(
+            df,
+            "space_reduction_comparison",
             ToolName.DEDUP,
             with_index=False,
         ).export()
