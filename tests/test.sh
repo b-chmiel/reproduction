@@ -93,7 +93,7 @@ main() {
 
     mkdir -pv $OUTPUT_DIRECTORY
 
-    for i in $(seq 1 $DELETION_TEST_TRIALS); do
+    for i in $(seq 1 $BONNIE_RUNS); do
         bonnie_test
     done
 

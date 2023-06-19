@@ -16,7 +16,6 @@ import logging
 import pandas as pd
 import configparser
 import argparse
-import numpy_financial as npf
 
 
 class FilesystemType(Enum):
